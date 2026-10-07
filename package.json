@@ -1,0 +1,214 @@
+{
+  "name": "hayaku-vscode-local",
+  "displayName": "Hayaku for VS Code (Unofficial)",
+  "description": "Hayakuの略記展開と自作スニペットを組み合わせた、CSS入力支援の非公式移植版です。",
+  "version": "0.4.0",
+  "publisher": "local-hayaku",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Snippets"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:css",
+    "onLanguage:scss",
+    "onLanguage:less",
+    "onLanguage:sass",
+    "onLanguage:stylus",
+    "onLanguage:postcss"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "package": "npx --yes @vscode/vsce package"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "hayaku.expand",
+        "title": "略記・自作スニペットを展開",
+        "category": "Hayaku"
+      },
+      {
+        "command": "hayaku.block",
+        "title": "CSSブロックを挿入",
+        "category": "Hayaku"
+      },
+      {
+        "command": "hayaku.cycle",
+        "title": "カーソル付近の数値を変更",
+        "category": "Hayaku"
+      },
+      {
+        "command": "hayaku.postexpand",
+        "title": "値を後展開して確定",
+        "category": "Hayaku"
+      },
+      {
+        "command": "hayaku.selectSnippetDirectory",
+        "title": "自作スニペットの保存先を選択",
+        "category": "Hayaku"
+      },
+      {
+        "command": "hayaku.nextSnippet",
+        "title": "次のスニペット入力欄へ移動",
+        "category": "Hayaku"
+      }
+    ],
+    "keybindings": [
+      {
+        "key": "tab",
+        "command": "hayaku.expand",
+        "when": "editorTextFocus && !editorReadonly && !editorTabMovesFocus && !inSnippetMode && editorLangId =~ /^(css|scss|less|sass|stylus|postcss)$/ && (config.hayaku.enableAbbreviations || config.hayaku.enableUserSnippets)"
+      },
+      {
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "command": "hayaku.block",
+        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^(css|scss|less|sass|stylus|postcss)$/ && config.hayaku.enableCodeBlocks"
+      },
+      {
+        "key": "alt+up",
+        "command": "hayaku.cycle",
+        "args": 1,
+        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^(css|scss|less|sass|stylus|postcss)$/ && config.hayaku.enableValueCyclingShortcuts && config.hayaku.enableValueCycling && hayaku.canCycleNumber"
+      },
+      {
+        "key": "alt+down",
+        "command": "hayaku.cycle",
+        "args": -1,
+        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^(css|scss|less|sass|stylus|postcss)$/ && config.hayaku.enableValueCyclingShortcuts && config.hayaku.enableValueCycling && hayaku.canCycleNumber"
+      },
+      {
+        "key": "alt+shift+up",
+        "command": "hayaku.cycle",
+        "args": 10,
+        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^(css|scss|less|sass|stylus|postcss)$/ && config.hayaku.enableValueCyclingShortcuts && config.hayaku.enableValueCycling && hayaku.canCycleNumber"
+      },
+      {
+        "key": "alt+shift+down",
+        "command": "hayaku.cycle",
+        "args": -10,
+        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^(css|scss|less|sass|stylus|postcss)$/ && config.hayaku.enableValueCyclingShortcuts && config.hayaku.enableValueCycling && hayaku.canCycleNumber"
+      },
+      {
+        "key": "ctrl+alt+up",
+        "command": "hayaku.cycle",
+        "args": 0.1,
+        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^(css|scss|less|sass|stylus|postcss)$/ && config.hayaku.enableValueCyclingShortcuts && config.hayaku.enableValueCycling && hayaku.canCycleNumber"
+      },
+      {
+        "key": "ctrl+alt+down",
+        "command": "hayaku.cycle",
+        "args": -0.1,
+        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^(css|scss|less|sass|stylus|postcss)$/ && config.hayaku.enableValueCyclingShortcuts && config.hayaku.enableValueCycling && hayaku.canCycleNumber"
+      },
+      {
+        "key": "tab",
+        "command": "hayaku.postexpand",
+        "when": "editorTextFocus && inSnippetMode && hayaku.valueActive && !editorReadonly && !editorTabMovesFocus && config.hayaku.enablePostexpand"
+      },
+      {
+        "key": "tab",
+        "command": "hayaku.nextSnippet",
+        "when": "editorTextFocus && !editorReadonly && !editorTabMovesFocus && inSnippetMode && (!hayaku.valueActive || !config.hayaku.enablePostexpand) && editorLangId =~ /^(css|scss|less|sass|stylus|postcss)$/ && config.hayaku.enableSnippetNavigation"
+      }
+    ],
+    "configuration": {
+      "title": "Hayaku（CSS入力支援）",
+      "properties": {
+        "hayaku.pythonPath": {
+          "type": "string",
+          "default": "python3",
+          "scope": "machine",
+          "description": "Pythonの実行ファイル：Python 3.9以降のコマンド名または絶対パスを指定します。Macではpython3、Windowsではpythonが一般的です。"
+        },
+        "hayaku.options": {
+          "type": "object",
+          "default": {},
+          "description": "詳細な展開設定：元のHayakuのCSS_*設定を指定します。hayaku_付きの設定名も使えます。例：CSS_colors_caseをlowercaseにすると色を小文字で出力します。"
+        },
+        "hayaku.aliases": {
+          "type": "object",
+          "default": {
+            "ffs": "font-feature-settings"
+          },
+          "description": "略記の別名：入力する略記と展開先を対応付けます。例：ffs → font-feature-settings。自作スニペット優先がオンで同じprefixがある場合は、スニペットが優先されます。"
+        },
+        "hayaku.dictionary": {
+          "type": "object",
+          "default": {
+            "font-feature-settings": {
+              "values": [],
+              "default": "\"palt\" 1"
+            }
+          },
+          "description": "ユーザー辞書：プロパティの候補値や初期値を追加・上書きします。valuesに候補の配列、defaultに初期値を指定します。"
+        },
+        "hayaku.clipboardDefaults": {
+          "type": "boolean",
+          "default": true,
+          "description": "クリップボードの初期値：コピーした色や画像パスを、展開後の入力欄の初期値に使います。オフではクリップボードを読み取りません。"
+        },
+        "hayaku.userSnippetDirectories": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "machine",
+          "description": "自作スニペットの保存先：使用中のsnippetsフォルダーを絶対パスで指定します。空欄では保存先を推定します。プロジェクト内の.vscode/*.code-snippetsも読み込みます。"
+        },
+        "hayaku.enableValueCyclingShortcuts": {
+          "type": "boolean",
+          "default": true,
+          "description": "数値変更のキー操作：数値の直前・途中・単位の直後でAlt+↑/↓などを数値変更に使います。数値から離れた場所や、この設定がオフの場合は標準の行移動などに戻ります。数値変更機能自体もオンにする必要があります。"
+        },
+        "hayaku.enableAbbreviations": {
+          "type": "boolean",
+          "default": true,
+          "description": "略記の展開：w10などをTabでCSSに展開します。オフにしても、自作スニペット優先は別の設定で利用できます。"
+        },
+        "hayaku.enableUserSnippets": {
+          "type": "boolean",
+          "default": true,
+          "description": "自作スニペットを優先：入力とprefixが完全一致する自作スニペットをHayakuより先に挿入します。オフでもVS Code標準の候補からスニペットを選べます。"
+        },
+        "hayaku.enablePostexpand": {
+          "type": "boolean",
+          "default": true,
+          "description": "値の後展開：Hayakuで作った入力欄の値をTabで展開・確定します。例：w → Tab → 10 → Tabでwidth: 10px;になります。オフでは通常の入力欄移動になります。"
+        },
+        "hayaku.enableCodeBlocks": {
+          "type": "boolean",
+          "default": true,
+          "description": "CSSブロックの挿入：MacのCmd+Enter（Windows/LinuxのCtrl+Enter）で括弧と改行を挿入します。オフでは標準のキー操作に戻ります。"
+        },
+        "hayaku.enableValueCycling": {
+          "type": "boolean",
+          "default": true,
+          "description": "数値の変更：カーソルに隣接するCSSの数値を増減します。数値の直前・途中・単位の直後が対象です。オフではキー操作とコマンドの両方を無効にします。"
+        },
+        "hayaku.enableSnippetNavigation": {
+          "type": "boolean",
+          "default": true,
+          "description": "Tabで入力欄を移動：スニペット編集中は候補確定より次の入力欄への移動を優先します。オフではVS Code標準のキー割り当てに任せます。Hayakuの値の後展開は別設定です。"
+        }
+      }
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tikusieg/hayaku-vscode.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tikusieg/hayaku-vscode/issues"
+  }
+}
