@@ -2,7 +2,7 @@
   "name": "hayaku-vscode",
   "displayName": "Hayaku for VS Code (Unofficial)",
   "description": "Hayakuの略記展開と自作スニペットを組み合わせた、CSS入力支援の非公式移植版です。",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "publisher": "tikusieg",
   "license": "MIT",
   "engines": {
@@ -27,8 +27,7 @@
   },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "package": "npx --yes @vscode/vsce package",
-    "test:parity": "python3 scripts/check_parity.py"
+    "package": "npx --yes @vscode/vsce package"
   },
   "contributes": {
     "commands": [
