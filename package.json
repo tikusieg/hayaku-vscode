@@ -2,7 +2,7 @@
   "name": "hayaku-vscode",
   "displayName": "Hayaku for VS Code (Unofficial)",
   "description": "Hayakuの略記展開と自作スニペットを組み合わせた、CSS入力支援の非公式移植版です。",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "publisher": "tikusieg",
   "license": "MIT",
   "engines": {
@@ -183,7 +183,7 @@
         "hayaku.enableCodeBlocks": {
           "type": "boolean",
           "default": true,
-          "description": "CSSブロックの挿入：MacのCmd+Enter（Windows/LinuxのCtrl+Enter）で、空白以外の文字がある行の末尾に括弧と改行を挿入します。行頭・行の途中・空行・末尾がセミコロンの行では標準の「下に行を挿入」を実行します。オフでは標準のキー操作に戻ります。"
+          "description": "CSSブロックの挿入：MacのCmd+Enter（Windows/LinuxのCtrl+Enter）で、空白以外の文字がある行の末尾に括弧と改行を挿入します。行頭・行の途中・空行・末尾がセミコロンの行・テキスト選択中は標準の「下に行を挿入」を実行します。オフでは標準のキー操作に戻ります。"
         },
         "hayaku.enableValueCycling": {
           "type": "boolean",

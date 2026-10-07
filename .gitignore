@@ -147,3 +147,10 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Hayaku local build and Python cache
+__pycache__/
+*.py[cod]
+*.vsix
+work/
+.DS_Store

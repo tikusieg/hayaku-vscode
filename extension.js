@@ -139,9 +139,10 @@ function activate(context) {
   });
   register('hayaku.block', async editor => {
     if(!enabled(editor,'enableCodeBlocks')) return;
-    if(editor.selections.some(s=>!s.isEmpty)) return;
     // Only append a block at the end of a nonempty, unfinished line.
-    const canInsert=editor.selections.every(({active})=>{
+    const canInsert=editor.selections.every(selection=>{
+      if(!selection.isEmpty) return false;
+      const {active}=selection;
       const text=editor.document.lineAt(active.line).text;
       return active.character===text.length && text.trim().length>0 && !text.trimEnd().endsWith(';');
     });

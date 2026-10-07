@@ -129,3 +129,10 @@ test('mixed cursor positions fall back together without partial block insertion'
   assert.equal(h.calls.filter(([id])=>id==='editor.action.insertLineAfter').length,1);
   assert.ok(!h.calls.some(([id])=>id==='insert'));
 });
+test('block insertion with selected text uses VS Code insert-line-after command',async()=>{
+  const h=harness('.item');
+  h.editor.selections[0].isEmpty=false;
+  await h.commands['hayaku.block']();
+  assert.ok(h.calls.some(([id])=>id==='editor.action.insertLineAfter'));
+  assert.ok(!h.calls.some(([id])=>id==='insert'));
+});

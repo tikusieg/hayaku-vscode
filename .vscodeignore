@@ -1,0 +1,9 @@
+test/**
+work/**
+**/__pycache__/**
+**/*.pyc
+
+scripts/**
+*.vsix
+.gitignore
+
