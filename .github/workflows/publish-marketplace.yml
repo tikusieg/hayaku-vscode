@@ -1,0 +1,45 @@
+name: Publish to Visual Studio Marketplace
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.repository == 'tikusieg/hayaku-vscode'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify tag matches extension version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [ "$RELEASE_TAG" != "v$VERSION" ]; then
+            echo "Tag $RELEASE_TAG must match package.json version v$VERSION" >&2
+            exit 1
+          fi
+
+      - name: Run tests
+        run: npm test
+
+      - name: Publish extension
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          if [ -z "$VSCE_PAT" ]; then
+            echo "GitHub Actions secret VSCE_PAT is not configured." >&2
+            exit 1
+          fi
+          npx --yes @vscode/vsce publish

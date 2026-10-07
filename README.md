@@ -124,6 +124,10 @@ JavaScript移植時に旧版で正常に処理された7,427入力の展開結�
 
 手元の計測では代表的な5種類の略記の平均処理時間が旧版約47ms、新版約0.2msでした。新版の初回辞書準備を含む処理は約7.5msです。環境で変わる値で、VS Codeの入力・描画時間は含みません。
 
+## Marketplaceへの公開
+
+GitHub Actionsでテスト後に自動公開できます。初回設定とリリース手順は [MARKETPLACE_RELEASE.md](MARKETPLACE_RELEASE.md) を参照してください。
+
 ## ライセンス
 
 MIT。元のHayakuの著作権表記を [LICENSE](LICENSE) に残しています。VS Code CSSデータの表記は [THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt) を参照してください。
