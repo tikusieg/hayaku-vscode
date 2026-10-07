@@ -4,7 +4,7 @@ const fs=require('node:fs');
 async function run() {
   const checks=[];
   try {
-    const extension=vscode.extensions.getExtension('local-hayaku.hayaku-vscode-local');
+    const extension=vscode.extensions.getExtension('tikusieg.hayaku-vscode');
     assert.ok(extension);
     await extension.activate();
     async function open(text,positions) {

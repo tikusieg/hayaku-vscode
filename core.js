@@ -1,17 +1,5 @@
-const {execFile} = require('node:child_process');
-const path = require('node:path');
-function run(python, request) {
-  return new Promise((resolve, reject) => {
-    const child = execFile(python, ['-B', path.join(__dirname, 'engine', 'bridge.py')], {
-      timeout: 5000, maxBuffer: 1024 * 1024, cwd: path.join(__dirname, 'engine')
-    }, (err, stdout, stderr) => {
-      if (err) return reject(new Error(stderr.trim() || err.message));
-      try { resolve(JSON.parse(stdout)); } catch (error) { reject(error); }
-    });
-    child.stdin.on('error', () => {});
-    child.stdin.end(JSON.stringify(request));
-  });
-}
+const {expand} = require('./engine/native');
+async function run(request) { return expand(request); }
 // Scan strings and comments so Tab never expands their contents.
 function context(text, language) {
   let quote = '', comment = false, lineComment = false, depth = 0;

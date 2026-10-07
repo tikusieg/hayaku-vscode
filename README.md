@@ -1,17 +1,20 @@
 # Hayaku for VS Code（非公式移植版）
 
-Sublime Text用の[Hayaku](https://github.com/hayaku/hayaku)をVS Codeで使うためのCSS入力支援拡張です。元のPythonエンジンと辞書に、現代のCSS辞書とVS Code用の操作を追加しています。
+Sublime Text用の[Hayaku](https://github.com/hayaku/hayaku)をVS Codeで使うためのCSS入力支援拡張です。元の略記エンジンをJavaScriptに移植し、現代のCSS辞書とVS Code用の操作を追加しています。
 
-現在のバージョンは **0.4.0**。Python **3.9以降**が必要です。公式Hayakuプロジェクトが配布する拡張ではありません。
+現在のバージョンは **0.5.1**。Pythonのインストールは不要です。公式Hayakuプロジェクトが配布する拡張ではありません。
 
 ## インストール
+
+VSIXをお持ちの場合は、VS Codeの「VSIXからのインストール」で適用できます。以前のローカル版（local-hayaku.hayaku-vscode-local）とは拡張IDが異なるため、旧版はアンインストールしてから使ってください。
+
+ソースから作成する場合：
 
 1. このリポジトリをダウンロードまたはcloneします。
 2. Node.js/npmを用意し、このフォルダーで `npm run package` を実行します。
 3. VS Codeの拡張機能画面の「…」→「VSIXからのインストール」で、生成された `.vsix` を選びます。
-4. Pythonが見つからない場合は設定 `hayaku.pythonPath` に実行ファイルを指定します。Macでは通常 `python3`、Windowsでは `python` または絶対パスです。
 
-デスクトップ版VS Codeが対象です。SSH/WSLでは拡張が動く側にPythonが必要です。Marketplaceには公開していません。
+デスクトップ版VS Codeが対象です。SSH/WSLでもPythonは不要です。Marketplace公開用のパッケージです。
 
 ## 略記の展開
 
@@ -60,11 +63,13 @@ CSS、SCSS、Less、Sass、Stylus、PostCSSに対応します。CSS以外は別�
 | 数値を±0.1 | Ctrl+Alt+↑ / ↓ |
 | CSSブロックを挿入 | Mac: Cmd+Enter / Windows・Linux: Ctrl+Enter |
 
+Cmd+Enterは空白以外の文字がある行の末尾でのみブロックを挿入します。行頭・行の途中・空行・末尾の空白を除いた最後の文字が `;` の場合は、標準の「下に行を挿入」になります。
+
 数値変更はカーソルが数値の直前・途中・単位の直後にある場合だけ有効です。それ以外では通常の行移動などに戻ります。文字列、コメント、URL、16進色の数字は対象外です。
 
 ## 設定
 
-設定画面で `@ext:local-hayaku.hayaku-vscode-local` を検索してください。説明文は日本語です。以下のスイッチはすべて既定でオンです。
+設定画面で `@ext:tikusieg.hayaku-vscode` を検索してください。説明文は日本語です。以下のスイッチはすべて既定でオンです。
 
 | 設定キー | 機能 |
 |---|---|
@@ -77,7 +82,7 @@ CSS、SCSS、Less、Sass、Stylus、PostCSSに対応します。CSS以外は別�
 | `hayaku.enableSnippetNavigation` | Tabで入力欄を移動する操作を優先 |
 | `hayaku.clipboardDefaults` | コピーした色・画像パスを初期値に利用 |
 
-その他に `hayaku.pythonPath`、`hayaku.userSnippetDirectories`、`hayaku.options`、`hayaku.aliases`、`hayaku.dictionary` があります。数値変更のキーだけを無効にする例：
+その他に `hayaku.userSnippetDirectories`、`hayaku.options`、`hayaku.aliases`、`hayaku.dictionary` があります。数値変更のキーだけを無効にする例：
 
 ```json
 {
@@ -98,23 +103,26 @@ MicrosoftのVS Code CSSデータを元にプロパティ377件を追加してい
 - 元版の特殊な関数スニペット、日付・バージョン変更、独自の行移動、設定自動移行などは未移植。
 - 関数・複合値・文脈の解析は限定的です。最新CSSの全構文を扱うものではありません。
 - `isFileTemplate`、`include` / `exclude` 付きの自作スニペットは自動優先の対象外。
-- 略記の展開ごとにPythonを起動します。5秒でタイムアウトします。
 - VS Code実画面でのキー競合は未検証です。
 
 拡張自身はネットワーク通信しません。
 
 ## 開発・テスト
 
-Node.jsとPython 3.9以降を用意してください。追加Pythonパッケージは不要です。
+通常のテスト・パッケージ作成にはNode.js/npmを用意してください。拡張の実行にはVS Code内蔵のJavaScript実行環境を使用します。
 
 ```sh
 npm test
 npm run package
 ```
 
-51件の自動テストが通過しています。既存略記69例の回帰確認、辞書、設定の切り替え、自作スニペット、数値位置の判定を含みます。VS Code API部分は模擬環境でのテストです。`test/vscode-integration.js` はExtension Host用ですが、作成環境ではVS Codeの起動に失敗し、実行完了していません。
+59件の自動テストが通過しています。既存略記69例の回帰確認、辞書、設定の切り替え、自作スニペット、数値位置の判定を含みます。VS Code API部分は模擬環境でのテストです。`test/vscode-integration.js` はExtension Host用ですが、作成環境ではVS Codeの起動に失敗し、実行完了していません。
 
 `npm run package` は初回にVSIX作成ツールをダウンロードします。
+
+Python版との比較は、Python 3.9以降を用意して `npm run test:parity` で実行できます。7,435入力のうち、旧版で正常に処理された7,427件が完全一致しました。旧版で例外になる8件は、展開しない動作にしています。比較用のPythonコードはソースに残し、VSIXには含めません。
+
+手元の計測では代表的な5種類の略記の平均処理時間が旧版約47ms、新版約0.2msでした。新版の初回辞書準備を含む処理は約7.5msです。環境で変わる値で、VS Codeの入力・描画時間は含みません。
 
 ## ライセンス
 
@@ -123,3 +131,7 @@ MIT。元のHayakuの著作権表記を [LICENSE](LICENSE) に残しています
 - 元のHayaku: https://github.com/hayaku/hayaku
 - 同梱元リビジョン: [UPSTREAM_COMMIT](UPSTREAM_COMMIT)
 - CSSデータ: https://github.com/microsoft/vscode-custom-data
+
+0.4.2ではTabの言語・設定判定を見直しました。以前手動で追加したhayaku.expandのTab割り当ては削除し、拡張の既定設定をご利用ください。
+
+0.5.0では略記エンジンをJavaScriptに移植しました。旧設定 `hayaku.pythonPath` は使用しないため、設定ファイルに残っていれば削除できます。自作スニペット優先、各機能のオンオフ、日本語の設定説明は引き継いでいます。

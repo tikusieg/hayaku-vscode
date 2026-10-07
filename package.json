@@ -1,9 +1,9 @@
 {
-  "name": "hayaku-vscode-local",
+  "name": "hayaku-vscode",
   "displayName": "Hayaku for VS Code (Unofficial)",
   "description": "Hayakuの略記展開と自作スニペットを組み合わせた、CSS入力支援の非公式移植版です。",
-  "version": "0.4.0",
-  "publisher": "local-hayaku",
+  "version": "0.5.1",
+  "publisher": "tikusieg",
   "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
@@ -27,7 +27,8 @@
   },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "package": "npx --yes @vscode/vsce package"
+    "package": "npx --yes @vscode/vsce package",
+    "test:parity": "python3 scripts/check_parity.py"
   },
   "contributes": {
     "commands": [
@@ -66,49 +67,49 @@
       {
         "key": "tab",
         "command": "hayaku.expand",
-        "when": "editorTextFocus && !editorReadonly && !editorTabMovesFocus && !inSnippetMode && editorLangId =~ /^(css|scss|less|sass|stylus|postcss)$/ && (config.hayaku.enableAbbreviations || config.hayaku.enableUserSnippets)"
+        "when": "editorTextFocus && !editorReadonly && !editorTabMovesFocus && !inSnippetMode && (editorLangId == css || editorLangId == scss || editorLangId == less || editorLangId == sass || editorLangId == stylus || editorLangId == postcss) && (config.hayaku.enableAbbreviations != false || config.hayaku.enableUserSnippets != false)"
       },
       {
         "key": "ctrl+enter",
         "mac": "cmd+enter",
         "command": "hayaku.block",
-        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^(css|scss|less|sass|stylus|postcss)$/ && config.hayaku.enableCodeBlocks"
+        "when": "editorTextFocus && !editorReadonly && (editorLangId == css || editorLangId == scss || editorLangId == less || editorLangId == sass || editorLangId == stylus || editorLangId == postcss) && config.hayaku.enableCodeBlocks"
       },
       {
         "key": "alt+up",
         "command": "hayaku.cycle",
         "args": 1,
-        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^(css|scss|less|sass|stylus|postcss)$/ && config.hayaku.enableValueCyclingShortcuts && config.hayaku.enableValueCycling && hayaku.canCycleNumber"
+        "when": "editorTextFocus && !editorReadonly && (editorLangId == css || editorLangId == scss || editorLangId == less || editorLangId == sass || editorLangId == stylus || editorLangId == postcss) && config.hayaku.enableValueCyclingShortcuts && config.hayaku.enableValueCycling && hayaku.canCycleNumber"
       },
       {
         "key": "alt+down",
         "command": "hayaku.cycle",
         "args": -1,
-        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^(css|scss|less|sass|stylus|postcss)$/ && config.hayaku.enableValueCyclingShortcuts && config.hayaku.enableValueCycling && hayaku.canCycleNumber"
+        "when": "editorTextFocus && !editorReadonly && (editorLangId == css || editorLangId == scss || editorLangId == less || editorLangId == sass || editorLangId == stylus || editorLangId == postcss) && config.hayaku.enableValueCyclingShortcuts && config.hayaku.enableValueCycling && hayaku.canCycleNumber"
       },
       {
         "key": "alt+shift+up",
         "command": "hayaku.cycle",
         "args": 10,
-        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^(css|scss|less|sass|stylus|postcss)$/ && config.hayaku.enableValueCyclingShortcuts && config.hayaku.enableValueCycling && hayaku.canCycleNumber"
+        "when": "editorTextFocus && !editorReadonly && (editorLangId == css || editorLangId == scss || editorLangId == less || editorLangId == sass || editorLangId == stylus || editorLangId == postcss) && config.hayaku.enableValueCyclingShortcuts && config.hayaku.enableValueCycling && hayaku.canCycleNumber"
       },
       {
         "key": "alt+shift+down",
         "command": "hayaku.cycle",
         "args": -10,
-        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^(css|scss|less|sass|stylus|postcss)$/ && config.hayaku.enableValueCyclingShortcuts && config.hayaku.enableValueCycling && hayaku.canCycleNumber"
+        "when": "editorTextFocus && !editorReadonly && (editorLangId == css || editorLangId == scss || editorLangId == less || editorLangId == sass || editorLangId == stylus || editorLangId == postcss) && config.hayaku.enableValueCyclingShortcuts && config.hayaku.enableValueCycling && hayaku.canCycleNumber"
       },
       {
         "key": "ctrl+alt+up",
         "command": "hayaku.cycle",
         "args": 0.1,
-        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^(css|scss|less|sass|stylus|postcss)$/ && config.hayaku.enableValueCyclingShortcuts && config.hayaku.enableValueCycling && hayaku.canCycleNumber"
+        "when": "editorTextFocus && !editorReadonly && (editorLangId == css || editorLangId == scss || editorLangId == less || editorLangId == sass || editorLangId == stylus || editorLangId == postcss) && config.hayaku.enableValueCyclingShortcuts && config.hayaku.enableValueCycling && hayaku.canCycleNumber"
       },
       {
         "key": "ctrl+alt+down",
         "command": "hayaku.cycle",
         "args": -0.1,
-        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^(css|scss|less|sass|stylus|postcss)$/ && config.hayaku.enableValueCyclingShortcuts && config.hayaku.enableValueCycling && hayaku.canCycleNumber"
+        "when": "editorTextFocus && !editorReadonly && (editorLangId == css || editorLangId == scss || editorLangId == less || editorLangId == sass || editorLangId == stylus || editorLangId == postcss) && config.hayaku.enableValueCyclingShortcuts && config.hayaku.enableValueCycling && hayaku.canCycleNumber"
       },
       {
         "key": "tab",
@@ -118,18 +119,12 @@
       {
         "key": "tab",
         "command": "hayaku.nextSnippet",
-        "when": "editorTextFocus && !editorReadonly && !editorTabMovesFocus && inSnippetMode && (!hayaku.valueActive || !config.hayaku.enablePostexpand) && editorLangId =~ /^(css|scss|less|sass|stylus|postcss)$/ && config.hayaku.enableSnippetNavigation"
+        "when": "editorTextFocus && !editorReadonly && !editorTabMovesFocus && inSnippetMode && (!hayaku.valueActive || !config.hayaku.enablePostexpand) && (editorLangId == css || editorLangId == scss || editorLangId == less || editorLangId == sass || editorLangId == stylus || editorLangId == postcss) && config.hayaku.enableSnippetNavigation"
       }
     ],
     "configuration": {
       "title": "Hayaku（CSS入力支援）",
       "properties": {
-        "hayaku.pythonPath": {
-          "type": "string",
-          "default": "python3",
-          "scope": "machine",
-          "description": "Pythonの実行ファイル：Python 3.9以降のコマンド名または絶対パスを指定します。Macではpython3、Windowsではpythonが一般的です。"
-        },
         "hayaku.options": {
           "type": "object",
           "default": {},
@@ -189,7 +184,7 @@
         "hayaku.enableCodeBlocks": {
           "type": "boolean",
           "default": true,
-          "description": "CSSブロックの挿入：MacのCmd+Enter（Windows/LinuxのCtrl+Enter）で括弧と改行を挿入します。オフでは標準のキー操作に戻ります。"
+          "description": "CSSブロックの挿入：MacのCmd+Enter（Windows/LinuxのCtrl+Enter）で、空白以外の文字がある行の末尾に括弧と改行を挿入します。行頭・行の途中・空行・末尾がセミコロンの行では標準の「下に行を挿入」を実行します。オフでは標準のキー操作に戻ります。"
         },
         "hayaku.enableValueCycling": {
           "type": "boolean",
@@ -210,5 +205,13 @@
   },
   "bugs": {
     "url": "https://github.com/tikusieg/hayaku-vscode/issues"
-  }
+  },
+  "keywords": [
+    "hayaku",
+    "css",
+    "scss",
+    "snippets",
+    "abbreviations"
+  ],
+  "icon": "images/icon.png"
 }

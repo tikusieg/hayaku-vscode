@@ -20,8 +20,8 @@ function harness(text, language='css', snippets=[], pick=0, settings={}) {
     Range:class {constructor(start,end){this.start=start;this.end=end;}},
     SnippetString:class {constructor(value){this.value=value;}}
   };
-  const mockCore={...core,run:async(_python,request)=>{
-    assert.ok(calls.some(([id])=>id==='hideSuggestWidget'),'suggestions hidden before Python');
+  const mockCore={...core,run:async(request)=>{
+    assert.ok(calls.some(([id])=>id==='hideSuggestWidget'),'suggestions hidden before expansion');
     assert.equal(request.abbr,'mb');
     return {snippet:'margin-bottom: ${1:};$0',postexpand:true,prefix:'margin-bottom: ',property:'margin-bottom'};
   }};
@@ -30,7 +30,7 @@ function harness(text, language='css', snippets=[], pick=0, settings={}) {
     module,require:id=>id==='vscode'?vscode:id==='./user-snippets'?{load:async()=>snippets,matching:require('../user-snippets').matching}:mockCore
   });
   module.exports.activate({subscriptions:[]});
-  return {commands,contexts,calls,listeners};
+  return {commands,contexts,calls,listeners,editor};
 }
 test('mb expands with one command even with suggestions; no completion is accepted',async()=>{
   const h=harness('.x {\n  mb');
@@ -38,7 +38,7 @@ test('mb expands with one command even with suggestions; no completion is accept
   assert.deepEqual(h.calls.filter(([id])=>id==='insert'),[['insert','margin-bottom: ${1:};$0']]);
   assert.ok(!h.calls.some(([id])=>['acceptSelectedSuggestion','tab','jumpToNextSnippetPlaceholder'].includes(id)));
 });
-test('non-abbreviation Tab retains indentation and does not call Python',async()=>{
+test('non-abbreviation Tab retains indentation and does not expand',async()=>{
   const h=harness('.x {\n  ');
   await h.commands['hayaku.expand']();
   assert.ok(h.calls.some(([id])=>id==='tab'));
@@ -104,4 +104,28 @@ test('numeric context and mutation agree and obey the master switch',async()=>{
   assert.ok(!h.calls.some(([id])=>id==='replace'));
   h=harness('.x {\n  display: block');
   assert.equal(h.contexts['hayaku.canCycleNumber'],false);
+});
+
+test('block insertion falls back at line start, middle, blank lines and after semicolons',async()=>{
+  for(const [text,column] of [['.item',0],['.item',2],['',0],['  ',2],['color: red;',11],['color: red;  ',13]]) {
+    const h=harness(text);h.editor.selections[0].active.character=column;
+    await h.commands['hayaku.block']();
+    assert.ok(h.calls.some(([id])=>id==='editor.action.insertLineAfter'),text+':'+column);
+    assert.ok(!h.calls.some(([id])=>id==='insert'));
+  }
+});
+test('block insertion at selector end retains CSS and indentation syntax',async()=>{
+  for(const language of ['css','scss','less','postcss','sass','stylus']) {
+    const h=harness('.item',language);
+    await h.commands['hayaku.block']();
+    assert.equal(h.calls.find(([id])=>id==='insert')[1],['sass','stylus'].includes(language)?'\n\t$0':' {\n\t$0\n}');
+    assert.ok(!h.calls.some(([id])=>id==='editor.action.insertLineAfter'));
+  }
+});
+test('mixed cursor positions fall back together without partial block insertion',async()=>{
+  const h=harness('.item');
+  h.editor.selections.push({isEmpty:true,active:{line:0,character:2}});
+  await h.commands['hayaku.block']();
+  assert.equal(h.calls.filter(([id])=>id==='editor.action.insertLineAfter').length,1);
+  assert.ok(!h.calls.some(([id])=>id==='insert'));
 });

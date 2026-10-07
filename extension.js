@@ -49,12 +49,12 @@ function activate(context) {
     if (!editor || !supported.test(editor.document.languageId) || !vscode.workspace.isTrusted) return;
     busy=true;
     try {await action(editor,...args);} catch(error) {
-      vscode.window.showErrorMessage('Hayaku: ' + error.message + ' — 設定 hayaku.pythonPath で Python 3.9 以降を指定してください。');
+      vscode.window.showErrorMessage('Hayaku: ' + error.message);
     } finally {busy=false;}
   }));
   function config(editor) {
     const c=vscode.workspace.getConfiguration('hayaku',editor.document.uri);
-    return {python:c.get('pythonPath','python3'), options:c.get('options',{}), aliases:c.get('aliases',{}),
+    return {options:c.get('options',{}), aliases:c.get('aliases',{}),
       dictionary:c.get('dictionary',{}), language:editor.document.languageId, clipboardDefaults:c.get('clipboardDefaults',true)};
   }
   const same = (e,version,selections) => vscode.window.activeTextEditor===e && e.document.version===version &&
@@ -103,7 +103,7 @@ function activate(context) {
     }
     await vscode.commands.executeCommand('hideSuggestWidget');
     await vscode.commands.executeCommand('editor.action.inlineSuggest.hide');
-    const result=await run(c.python,{...c,abbr,clipboard:c.clipboardDefaults?await vscode.env.clipboard.readText():''});
+    const result=await run({...c,abbr,clipboard:c.clipboardDefaults?await vscode.env.clipboard.readText():''});
     if(!same(editor,version,selections)) return;
     if(!result) return vscode.commands.executeCommand('tab');
     await vscode.commands.executeCommand('hideSuggestWidget');
@@ -128,7 +128,7 @@ function activate(context) {
     const end=tail.indexOf(';');
     const raw=tail.slice(session.prefix.length,end<0?tail.length:end).trim();
     if(!raw) return vscode.commands.executeCommand('jumpToNextSnippetPlaceholder');
-    const result=await run(c.python,{...c,abbr:session.property+':'+raw,
+    const result=await run({...c,abbr:session.property+':'+raw,
       options:{...c.options,CSS_prefixes_disable:true},clipboard:''});
     if(!same(editor,version,selections)) return;
     if(!result || result.placeholder) return vscode.commands.executeCommand('jumpToNextSnippetPlaceholder');
@@ -140,6 +140,12 @@ function activate(context) {
   register('hayaku.block', async editor => {
     if(!enabled(editor,'enableCodeBlocks')) return;
     if(editor.selections.some(s=>!s.isEmpty)) return;
+    // Only append a block at the end of a nonempty, unfinished line.
+    const canInsert=editor.selections.every(({active})=>{
+      const text=editor.document.lineAt(active.line).text;
+      return active.character===text.length && text.trim().length>0 && !text.trimEnd().endsWith(';');
+    });
+    if(!canInsert) return vscode.commands.executeCommand('editor.action.insertLineAfter');
     const indentOnly=['sass','stylus'].includes(editor.document.languageId);
     await editor.insertSnippet(new vscode.SnippetString(indentOnly?'\n\t$0':' {\n\t$0\n}'));
   });

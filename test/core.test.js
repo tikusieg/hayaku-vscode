@@ -1,7 +1,6 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {run,candidate}=require('../core');
-const python=process.env.HAYAKU_PYTHON || 'python3';
 const cases={
   por:'position: relative;$0', 'pstnrltv':'position: relative;$0', 'p:r':'position: relative;$0',
   w10:'width: 10px;$0', 'ml-10':'margin-left: -10px;$0', 'w10.5':'width: 10.5em;$0',
@@ -10,18 +9,18 @@ const cases={
   'w100p':'width: 100%;$0', 'op.5':'opacity: 0.5;$0'
 };
 for(const [abbr,expected] of Object.entries(cases)) test(abbr,async()=>{
-  assert.equal((await run(python,{abbr})).snippet,expected);
+  assert.equal((await run({abbr})).snippet,expected);
 });
 test('custom aliases, style and preprocessor',async()=>{
-  assert.equal((await run(python,{abbr:'zz',aliases:{zz:'w10'}})).snippet,'width: 10px;$0');
-  assert.equal((await run(python,{abbr:'w10',language:'stylus'})).snippet,'width 10px$0');
-  assert.equal((await run(python,{abbr:'w10',language:'sass'})).snippet,'width: 10px$0');
-  assert.equal((await run(python,{abbr:'cFA',options:{hayaku_CSS_colors_case:'lowercase'}})).snippet,'color: #fafafa;$0');
+  assert.equal((await run({abbr:'zz',aliases:{zz:'w10'}})).snippet,'width: 10px;$0');
+  assert.equal((await run({abbr:'w10',language:'stylus'})).snippet,'width 10px$0');
+  assert.equal((await run({abbr:'w10',language:'sass'})).snippet,'width: 10px$0');
+  assert.equal((await run({abbr:'cFA',options:{hayaku_CSS_colors_case:'lowercase'}})).snippet,'color: #fafafa;$0');
 });
 test('placeholder, clipboard and misses',async()=>{
-  assert.match((await run(python,{abbr:'w'})).snippet,/\$\{1:/);
-  assert.match((await run(python,{abbr:'c',clipboard:'#123'})).snippet,/#123/);
-  assert.equal(await run(python,{abbr:'zzzzzzzzzz'}),null);
+  assert.match((await run({abbr:'w'})).snippet,/\$\{1:/);
+  assert.match((await run({abbr:'c',clipboard:'#123'})).snippet,/#123/);
+  assert.equal(await run({abbr:'zzzzzzzzzz'}),null);
 });
 test('context protects selectors, strings and comments',()=>{
   assert.equal(candidate('.thing {\n  w10','','css'),'w10');
@@ -31,6 +30,7 @@ test('context protects selectors, strings and comments',()=>{
   assert.equal(candidate('.x { w10','abc','css'),null);
   assert.equal(candidate('.x { // w10','','scss'),null);
 });
-test('missing Python rejects without modifying text',async()=>{
-  await assert.rejects(run('/nonexistent/python',{abbr:'w10'}));
+test('empty and oversized abbreviations leave text unchanged',async()=>{
+  assert.equal(await run({abbr:''}),null);
+  assert.equal(await run({abbr:'w'.repeat(129)}),null);
 });
