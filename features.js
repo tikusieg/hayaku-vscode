@@ -51,7 +51,12 @@ async function adjustedNumber(text,target,step,settings) {
   if(metadata.always_positive&&settings.options?.CSS_cycle_positive_limits!==false)value=Math.max(0,value);
   return String(value);
 }
-async function postValue(property,raw,settings) {
+async function postValue(property,raw,settings,liveOptions={}) {
+  if(/^[a-z-]+$/.test(raw)) {
+    if(liveOptions.keywords===false)return null;
+    const values=await run({...settings,action:'values',property});
+    return values.find(value=>value.startsWith(raw))||null;
+  }
   if(/^(?:color|.*-color|background|border.*|outline.*)$/.test(property)) {
     const rgba=/^(?:rgba\()?([0-9]{1,3}),([.]?)$/.exec(raw);
     if(rgba&&Number(rgba[1])<=255)return `rgba(${rgba[1]},${rgba[1]},${rgba[1]},${rgba[2]?'0.5':'1'})`;

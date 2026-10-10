@@ -2,7 +2,7 @@
   "name": "hayaku-vscode",
   "displayName": "Hayaku for VS Code (Unofficial)",
   "description": "Hayakuの略記展開と自作スニペットを組み合わせた、CSS入力支援の非公式移植版です。",
-  "version": "0.5.9",
+  "version": "0.5.10",
   "publisher": "tikusieg",
   "license": "MIT",
   "engines": {
@@ -254,6 +254,11 @@
           "type": "boolean",
           "default": true,
           "description": "数値変更の下限：widthなど非負のプロパティを0未満にしません。marginなど負数を許すプロパティは対象外です。ユーザー辞書のalways_positiveも反映します。"
+        },
+        "hayaku.enableLiveKeywordCompletion": {
+          "type": "boolean",
+          "default": true,
+          "description": "入力中のキーワード補完：値の先頭が一致するキーワードだけを補完します。オフでも数値の単位・色の補完とTabによる後展開は維持します。キーワードの順送りとは別の設定です。"
         }
       }
     }

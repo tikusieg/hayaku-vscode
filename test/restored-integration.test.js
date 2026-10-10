@@ -45,3 +45,13 @@ test('live postexpansion handles keywords, colors, RGBA channel selection and de
   const w=editorHarness('.x {\n w');await w.commands['hayaku.expand']();await w.type('1');const at=w.editor.document.offsetAt(w.editor.selection.active);w.select(at-1,at);await w.type('');assert.equal(w.text,'.x {\n width: ;');
   const rgba=editorHarness('.x {\n c');await rgba.commands['hayaku.expand']();await rgba.type('255');await rgba.type(',');assert.equal(rgba.text,'.x {\n color: rgba(255,255,255,1);');await rgba.type('.');assert.equal(rgba.text,'.x {\n color: rgba(255,255,255,0.5);');
 });
+test('padding-right accepts typed sp() without replacing it with unset',async()=>{
+  const h=editorHarness('.x {\n pr');await h.commands['hayaku.expand']();
+  for(const c of 'sp()')await h.type(c);
+  assert.equal(h.text,'.x {\n padding-right: sp();');
+  await h.commands['hayaku.postexpand']();assert.equal(h.text,'.x {\n padding-right: sp();');
+});
+test('keyword completion has its own switch while numeric completion stays enabled',async()=>{
+  const h=editorHarness('.x {\n po',{enableLiveKeywordCompletion:false});await h.commands['hayaku.expand']();await h.type('a');assert.equal(h.text,'.x {\n position: a;');
+  const w=editorHarness('.x {\n w',{enableLiveKeywordCompletion:false});await w.commands['hayaku.expand']();await w.type('1');assert.equal(w.text,'.x {\n width: 1px;');
+});

@@ -164,3 +164,7 @@ cursorは `cu` から始めて入力します。`cup` → `cursor: pointer;`、`
 ブロックの書式は `CSS_whitespace_block_start_before` / `after`、`CSS_whitespace_block_end_before` / `after`、`CSS_syntax_no_curly_braces` で変更できます。`CSS_syntax_autoguess` に `selector {`、`  property: value;`、`}` のような行の配列を指定して書式を設定することもできます。これは現在のファイルを読み取って書式を推測する機能ではありません。個別に指定した設定を優先します。
 
 `CSS_function_snippets` は関数値とスニペット文字列の対応を指定するオブジェクトです。例えば `linear-gradient()` の入力欄を変更できます。ユーザー辞書はオブジェクト形式のほか元版の配列形式も使え、`remove_values` だけの指定にも対応します。
+
+### 入力中のキーワード補完を無効にする
+
+「Hayaku: Enable Live Keyword Completion」をオフにすると、入力中のキーワードの自動補完だけを止められます。数値の単位補完は維持します。「キーワードの値変更」はAlt+矢印などの順送り機能で、別の設定です。設定検索は `@id:hayaku.enableLiveKeywordCompletion` を使用してください。

@@ -102,7 +102,7 @@ function activate(context) {
       return;
     }
     const version=editor.document.version;
-    const value=await postValue(session.property,raw,config(editor));
+    const value=await postValue(session.property,raw,config(editor),{keywords:enabled(editor,'enableLiveKeywordCompletion')});
     if(!value||line.slice(start,limit)===value||version!==editor.document.version||valueSession!==session)return;
     let cursor=value.startsWith(raw)?raw.length:value.startsWith('#')&&!raw.startsWith('#')?raw.length+1:value.length;
     let selectionLength=0;
