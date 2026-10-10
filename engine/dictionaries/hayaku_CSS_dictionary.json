@@ -648,6 +648,13 @@
     "f":   "font:",
     "p":   "padding:",
     "pr":  "padding-right:",
+    "of": "object-fit:",
+    "ar": "aspect-ratio:",
+    "mi": "margin-inline:",
+    "mbm": "mix-blend-mode:",
+    "cu": "cursor:",
+    "mia": "margin-inline:auto",
+    "r":   "right:",
     "ai":  "align-items:",
     "tf": "transform:",
 

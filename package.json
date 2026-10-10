@@ -2,7 +2,7 @@
   "name": "hayaku-vscode",
   "displayName": "Hayaku for VS Code (Unofficial)",
   "description": "Hayakuの略記展開と自作スニペットを組み合わせた、CSS入力支援の非公式移植版です。",
-  "version": "0.5.3",
+  "version": "0.5.9",
   "publisher": "tikusieg",
   "license": "MIT",
   "engines": {
@@ -60,6 +60,11 @@
         "command": "hayaku.nextSnippet",
         "title": "次のスニペット入力欄へ移動",
         "category": "Hayaku"
+      },
+      {
+        "command": "hayaku.cycleKeyword",
+        "title": "カーソル付近のキーワードを変更",
+        "category": "Hayaku"
       }
     ],
     "keybindings": [
@@ -113,12 +118,24 @@
       {
         "key": "tab",
         "command": "hayaku.postexpand",
-        "when": "editorTextFocus && inSnippetMode && hayaku.valueActive && !editorReadonly && !editorTabMovesFocus && config.hayaku.enablePostexpand"
+        "when": "editorTextFocus && hayaku.valueActive && !editorReadonly && !editorTabMovesFocus && config.hayaku.enablePostexpand"
       },
       {
         "key": "tab",
         "command": "hayaku.nextSnippet",
         "when": "editorTextFocus && !editorReadonly && !editorTabMovesFocus && inSnippetMode && (!hayaku.valueActive || !config.hayaku.enablePostexpand) && (editorLangId == css || editorLangId == scss || editorLangId == less || editorLangId == sass || editorLangId == stylus || editorLangId == postcss) && config.hayaku.enableSnippetNavigation"
+      },
+      {
+        "key": "alt+up",
+        "command": "hayaku.cycleKeyword",
+        "args": 1,
+        "when": "editorTextFocus && !editorReadonly && hayaku.canCycleKeyword && config.hayaku.enableValueCycling && config.hayaku.enableKeywordCycling && config.hayaku.enableKeywordCyclingShortcuts"
+      },
+      {
+        "key": "alt+down",
+        "command": "hayaku.cycleKeyword",
+        "args": -1,
+        "when": "editorTextFocus && !editorReadonly && hayaku.canCycleKeyword && config.hayaku.enableValueCycling && config.hayaku.enableKeywordCycling && config.hayaku.enableKeywordCyclingShortcuts"
       }
     ],
     "configuration": {
@@ -137,7 +154,10 @@
           "description": "略記の別名：入力する略記と展開先を対応付けます。例：ffs → font-feature-settings。自作スニペット優先がオンで同じprefixがある場合は、スニペットが優先されます。"
         },
         "hayaku.dictionary": {
-          "type": "object",
+          "type": [
+            "object",
+            "array"
+          ],
           "default": {
             "font-feature-settings": {
               "values": [],
@@ -150,6 +170,11 @@
           "type": "boolean",
           "default": true,
           "description": "クリップボードの初期値：コピーした色や画像パスを、展開後の入力欄の初期値に使います。オフではクリップボードを読み取りません。"
+        },
+        "hayaku.disableVendorPrefixes": {
+          "type": "boolean",
+          "default": false,
+          "description": "ベンダープレフィックスを無効化：Hayakuの展開で-webkit-、-moz-などのプロパティを出力しません。"
         },
         "hayaku.userSnippetDirectories": {
           "type": "array",
@@ -188,12 +213,47 @@
         "hayaku.enableValueCycling": {
           "type": "boolean",
           "default": true,
-          "description": "数値の変更：カーソルに隣接するCSSの数値を増減します。数値の直前・途中・単位の直後が対象です。オフではキー操作とコマンドの両方を無効にします。"
+          "description": "値の変更：カーソルに隣接するCSSの数値を増減します。選択した桁とキーワードの変更は個別設定で切り替えられます。オフでは値変更のコマンドとキー操作を無効にします。"
         },
         "hayaku.enableSnippetNavigation": {
           "type": "boolean",
           "default": true,
           "description": "Tabで入力欄を移動：スニペット編集中は候補確定より次の入力欄への移動を優先します。オフではVS Code標準のキー割り当てに任せます。Hayakuの値の後展開は別設定です。"
+        },
+        "hayaku.enableInlineComments": {
+          "type": "boolean",
+          "default": true,
+          "description": "CSSのコメント変換：ルール内で // を入力すると /* 入力欄 */ に変換します。"
+        },
+        "hayaku.enableLivePostexpand": {
+          "type": "boolean",
+          "default": true,
+          "description": "入力中の後展開：Hayakuの値入力欄で単位・キーワード・色を入力中に補完します。値の後展開もオンにする必要があります。"
+        },
+        "hayaku.enableKeywordCycling": {
+          "type": "boolean",
+          "default": true,
+          "description": "キーワードの値変更：Hayakuのコマンドでpositionなどの候補値を順送りできます。値変更機能もオンにする必要があります。"
+        },
+        "hayaku.enableKeywordCyclingShortcuts": {
+          "type": "boolean",
+          "default": false,
+          "description": "キーワード変更のキー操作：候補値の直前・途中・直後でAlt+↑/↓を順送りに使います。オフでは数値以外で標準の行移動を維持します。"
+        },
+        "hayaku.enableSelectedDigitCycling": {
+          "type": "boolean",
+          "default": true,
+          "description": "選択した桁の数値変更：数値の一部を選択して、その桁に応じた量で増減します。"
+        },
+        "hayaku.enableFunctionSnippets": {
+          "type": "boolean",
+          "default": true,
+          "description": "関数の入力支援：グラデーションの入力欄と、rotate・skewの角度へのdeg補完を利用します。"
+        },
+        "hayaku.enablePositiveValueLimits": {
+          "type": "boolean",
+          "default": true,
+          "description": "数値変更の下限：widthなど非負のプロパティを0未満にしません。marginなど負数を許すプロパティは対象外です。ユーザー辞書のalways_positiveも反映します。"
         }
       }
     }

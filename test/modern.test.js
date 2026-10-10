@@ -39,6 +39,10 @@ test('font weights accept numeric values without units and retain keywords',asyn
     assert.equal((await run({abbr:'fw600',language})).snippet,expected);
   }
 });
+test('CSS_prefixes_disable omits generated vendor properties',async()=>{
+  const result=await run({abbr:'tr',options:{CSS_prefixes_disable:true}});
+  assert.equal(result.snippet,'transition: ${1:};$0');
+});
 test('configured ffs shortcut uses editable palt default',async()=>{
   const properties=require('../package.json').contributes.configuration.properties;
   const settings={aliases:properties['hayaku.aliases'].default,dictionary:properties['hayaku.dictionary'].default};

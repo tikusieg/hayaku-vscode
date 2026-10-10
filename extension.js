@@ -1,6 +1,7 @@
 const vscode = require('vscode');
 const userSnippets = require('./user-snippets');
 const {run, candidate, numericTarget} = require('./core');
+const {styleOptions,blockSnippet,keywordTarget,numberSelectionTarget,adjustedNumber,postValue,canComment}=require('./features');
 const supported = /^(css|scss|less|sass|stylus|postcss)$/;
 let busy = false;
 let valueSession;
@@ -20,28 +21,38 @@ function activate(context) {
       [folders[0].fsPath],vscode.ConfigurationTarget.Global);
   }));
   const enabled=(editor,name)=>vscode.workspace.getConfiguration('hayaku',editor.document.uri).get(name,true);
+  let typingEdit=false;
   const targetsFor=editor=>{
     if(!editor || !supported.test(editor.document.languageId) || !vscode.workspace.isTrusted ||
        !enabled(editor,'enableValueCycling')) return [];
     const text=editor.document.getText();
     return editor.selections.map(selection=>selection.isEmpty?
-      numericTarget(text,editor.document.offsetAt(selection.active),editor.document.languageId):null);
+      numericTarget(text,editor.document.offsetAt(selection.active),editor.document.languageId):
+      enabled(editor,'enableSelectedDigitCycling')?numberSelectionTarget(text,editor.document.offsetAt(selection.start),editor.document.offsetAt(selection.end),editor.document.languageId):null);
   };
   const refreshNumberContext=()=>{
     const targets=targetsFor(vscode.window.activeTextEditor);
+    const editor=vscode.window.activeTextEditor;
+    const keywords=editor&&supported.test(editor.document.languageId)&&enabled(editor,'enableKeywordCycling')&&enabled(editor,'enableValueCycling')&&editor.selections.every(s=>s.isEmpty&&keywordTarget(editor.document.getText(),editor.document.offsetAt(s.active),editor.document.languageId));
+    vscode.commands.executeCommand('setContext','hayaku.canCycleKeyword',!!keywords);
     return vscode.commands.executeCommand('setContext','hayaku.canCycleNumber',
       targets.length>0 && targets.every(Boolean));
   };
   context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(refreshNumberContext));
   context.subscriptions.push(vscode.window.onDidChangeTextEditorSelection(refreshNumberContext));
-  context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(refreshNumberContext));
+  context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(event=>{refreshNumberContext();if(event?.contentChanges?.length&&!typingEdit&&!busy)handleTyping(event).catch(error=>output.appendLine(error.message));}));
   context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(refreshNumberContext));
   refreshNumberContext();
   const clearValue = () => { valueSession=undefined; vscode.commands.executeCommand('setContext','hayaku.valueActive',false); };
   context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(clearValue));
   context.subscriptions.push(vscode.window.onDidChangeTextEditorSelection(event => {
-    if(valueSession && (event.textEditor !== valueSession.editor || event.selections.length !== 1 ||
-       event.selections[0].active.line !== valueSession.start.line)) clearValue();
+    if(!valueSession)return;
+    if(event.textEditor !== valueSession.editor || event.selections.length !== 1 ||
+       event.selections[0].active.line !== valueSession.start.line){clearValue();return;}
+    const line=event.textEditor.document.lineAt(valueSession.start.line).text;
+    const start=valueSession.start.character+valueSession.prefix.length,end=line.indexOf(';',start);
+    const at=event.selections[0].active.character;
+    if(at<start||at>(end<0?line.length:end))clearValue();
   }));
   const register = (id, action) => context.subscriptions.push(vscode.commands.registerCommand(id, async (...args) => {
     if (busy) return;
@@ -54,8 +65,56 @@ function activate(context) {
   }));
   function config(editor) {
     const c=vscode.workspace.getConfiguration('hayaku',editor.document.uri);
-    return {options:c.get('options',{}), aliases:c.get('aliases',{}),
+    const options={...c.get('options',{})};
+    const vendorSetting=c.inspect('disableVendorPrefixes');
+    const hasVendorSetting=vendorSetting && ['globalValue','workspaceValue','workspaceFolderValue',
+      'globalLanguageValue','workspaceLanguageValue','workspaceFolderLanguageValue']
+      .some(key=>vendorSetting[key]!==undefined);
+    if(hasVendorSetting) options.CSS_prefixes_disable=c.get('disableVendorPrefixes');
+    options.CSS_enable_function_snippets=c.get('enableFunctionSnippets',true);
+    options.CSS_cycle_positive_limits=c.get('enablePositiveValueLimits',true);
+    return {options:styleOptions(options), aliases:c.get('aliases',{}),
       dictionary:c.get('dictionary',{}), language:editor.document.languageId, clipboardDefaults:c.get('clipboardDefaults',true)};
+  }
+  async function handleTyping(event) {
+    const editor=vscode.window.activeTextEditor;
+    if(!editor||event.document!==editor.document||!vscode.workspace.isTrusted||editor.selections.length!==1||event.reason||event.contentChanges.length!==1)return;
+    const change=event.contentChanges[0],inputVersion=editor.document.version;
+    if(change.text.length>1)return;
+    // Let VS Code update the selection after the typed character.
+    await new Promise(resolve=>setTimeout(resolve,0));
+    if(editor!==vscode.window.activeTextEditor||editor.document.version!==inputVersion||typingEdit||!editor.selections[0].isEmpty)return;
+    const active=editor.selections[0].active,text=editor.document.getText(),offset=editor.document.offsetAt(active);
+    if(change.text==='/'&&text.slice(offset-2,offset)==='//'&&enabled(editor,'enableInlineComments')&&config(editor).options.CSS_disable_inline_comment!==true&&canComment(text,offset-2,editor.document.languageId)) {
+      typingEdit=true;
+      try {await editor.insertSnippet(new vscode.SnippetString('/* ${1} */$0'),new vscode.Range(editor.document.positionAt(offset-2),active));} finally {typingEdit=false;}
+      return;
+    }
+    const session=valueSession;
+    if(!session||session.editor!==editor||active.line!==session.start.line||!enabled(editor,'enablePostexpand')||!enabled(editor,'enableLivePostexpand'))return;
+    const line=editor.document.lineAt(active.line).text,start=session.start.character+session.prefix.length;
+    if(!line.slice(session.start.character).startsWith(session.prefix)||active.character<start)return;
+    const end=line.indexOf(';',start),limit=end<0?line.length:end;
+    if(active.character>limit||change.range.start.line!==active.line||change.range.start.character<start)return;
+    const raw=line.slice(start,active.character);
+    if(!raw){
+      if(!change.text&&session.liveValue){typingEdit=true;try{await editor.edit(edit=>edit.replace(new vscode.Range(new vscode.Position(active.line,start),new vscode.Position(active.line,limit)),''),{undoStopBefore:false,undoStopAfter:false});editor.selection=new vscode.Selection(active,active);}finally{typingEdit=false;}session.liveValue=undefined;}
+      return;
+    }
+    const version=editor.document.version;
+    const value=await postValue(session.property,raw,config(editor));
+    if(!value||line.slice(start,limit)===value||version!==editor.document.version||valueSession!==session)return;
+    let cursor=value.startsWith(raw)?raw.length:value.startsWith('#')&&!raw.startsWith('#')?raw.length+1:value.length;
+    let selectionLength=0;
+    if(/^\d{1,3},$/.test(raw)&&value.startsWith('rgba(')){cursor=value.indexOf(',')+1;selectionLength=raw.length-1;}
+    if(/^(?:\d{1,3},|rgba\(\d{1,3},)\.$/.test(raw)&&value.startsWith('rgba(')){cursor=value.lastIndexOf(',')+3;selectionLength=1;}
+    typingEdit=true;
+    try {
+      await editor.edit(edit=>edit.replace(new vscode.Range(new vscode.Position(active.line,start),new vscode.Position(active.line,limit)),value),{undoStopBefore:false,undoStopAfter:false});
+      const pos=new vscode.Position(active.line,start+Math.min(cursor,value.length));
+      editor.selection=new vscode.Selection(pos,new vscode.Position(pos.line,pos.character+selectionLength));
+      session.liveValue=value;
+    } finally {typingEdit=false;}
   }
   const same = (e,version,selections) => vscode.window.activeTextEditor===e && e.document.version===version &&
     selections.length===e.selections.length && selections.every((s,i)=>s.isEqual(e.selections[i]));
@@ -128,8 +187,8 @@ function activate(context) {
     const end=tail.indexOf(';');
     const raw=tail.slice(session.prefix.length,end<0?tail.length:end).trim();
     if(!raw) return vscode.commands.executeCommand('jumpToNextSnippetPlaceholder');
-    const result=await run({...c,abbr:session.property+':'+raw,
-      options:{...c.options,CSS_prefixes_disable:true},clipboard:''});
+    const plainValue=await postValue(session.property,raw,c);
+    const result=plainValue?await run({...c,abbr:session.property+':'+plainValue,options:{...c.options,CSS_prefixes_disable:true},clipboard:''}):null;
     if(!same(editor,version,selections)) return;
     if(!result || result.placeholder) return vscode.commands.executeCommand('jumpToNextSnippetPlaceholder');
     const range=new vscode.Range(session.start,new vscode.Position(session.start.line,
@@ -147,19 +206,33 @@ function activate(context) {
       return active.character===text.length && text.trim().length>0 && !text.trimEnd().endsWith(';');
     });
     if(!canInsert) return vscode.commands.executeCommand('editor.action.insertLineAfter');
-    const indentOnly=['sass','stylus'].includes(editor.document.languageId);
-    await editor.insertSnippet(new vscode.SnippetString(indentOnly?'\n\t$0':' {\n\t$0\n}'));
+    await editor.insertSnippet(new vscode.SnippetString(blockSnippet(editor.document.languageId,config(editor).options)));
+  });
+  register('hayaku.cycleKeyword',async(editor,step=1)=>{
+    if(!enabled(editor,'enableValueCycling')||!enabled(editor,'enableKeywordCycling'))return;
+    const text=editor.document.getText(),c=config(editor),version=editor.document.version,selections=[...editor.selections];
+    const targets=selections.map(s=>s.isEmpty?keywordTarget(text,editor.document.offsetAt(s.active),c.language):null);
+    if(!targets.length||targets.some(t=>!t))return;
+    const changes=[];
+    for(const target of targets) {
+      const values=await run({...c,action:'values',property:target.property}),at=values.indexOf(target.value);
+      if(at<0||!values.length)return;
+      changes.push({...target,value:values[(at+(step<0?-1:1)+values.length)%values.length]});
+    }
+    if(!same(editor,version,selections))return;
+    await editor.edit(edit=>changes.forEach(t=>edit.replace(new vscode.Range(editor.document.positionAt(t.start),editor.document.positionAt(t.end)),t.value)));
   });
   register('hayaku.cycle', async (editor, step=1) => {
     if(!Number.isFinite(step)) step=1;
-    const targets=targetsFor(editor);
+    const targets=targetsFor(editor),version=editor.document.version,selections=[...editor.selections];
     if(!targets.length || targets.some(t=>!t)) return;
     const changes=new Map();
     for(const target of targets) {
-      const value=String(Math.round((target.value+step)*1e8)/1e8);
+      const value=await adjustedNumber(editor.document.getText(),target,step,config(editor));
       changes.set(target.start,{range:new vscode.Range(editor.document.positionAt(target.start),
         editor.document.positionAt(target.end)),value});
     }
+    if(!same(editor,version,selections))return;
     await editor.edit(edit=>changes.forEach(change=>edit.replace(change.range,change.value)));
 
   });

@@ -22,7 +22,7 @@
 | accent-colorF | accent-color: #FFF; |
 | width:revert-layer | width: revert-layer; |
 
-aspect-ratioなどの複合値は、プロパティ名 → Tabで値の入力欄を作り、16 / 9などを手入力してください。今回、関数やスラッシュを含む略記の解析は拡張していません。
+0.5.9では `ar16/9` のTab展開や `bgi:linear-gradient()` などの関数入力にも対応しています。すべての複合構文を解析するわけではないため、複雑な値はプロパティを展開してから手入力してください。
 
 ## 取り込み方針
 

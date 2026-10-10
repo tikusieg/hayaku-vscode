@@ -7,9 +7,9 @@ const own = (o,k) => Object.hasOwn(o,k);
 const clone = o => structuredClone(o);
 function parse(raw) {
   const out=Object.create(null);
-  for(const item of raw || []) if(own(item,'name') && own(item,'values')) {
+  for(const item of raw || []) if(own(item,'name')) {
     for(const name of Array.isArray(item.name)?item.name:item.name.split(',').map(s=>s.trim())) {
-      out[name]={...item,values:item.values.map(v=>v.replaceAll(' ','~'))};
+      out[name]={...item,values:(item.values||[]).map(v=>v.replaceAll(' ','~'))};
       delete out[name].name;
     }
   }
@@ -90,6 +90,13 @@ function segmentation(abbr) {
   if(/^[A-Z0-9.]+$/.test(rest)&&/^[\dA-F]+$/.test(hex)&&parseInt(hex,16)<=0xffffff) {
     p.color=hex;if(dot>0)p.alpha=rest.slice(dot);
   }
+  const numericToken='[+-]?(?:\\d+\\.?\\d*|\\.\\d+)(?:[eE][+-]?\\d+)?[a-z%]*';
+  if(new RegExp('^'+numericToken+'(?:-'+numericToken+'){1,3}$').test(rest)) {
+    const tokens=[...rest.matchAll(new RegExp('(?:^|-)('+numericToken+')','g'))].map(m=>segmentation('x'+m[1]));
+    if(tokens.every(t=>own(t,'number'))) {
+      p.numbers=tokens;p.number=tokens[0].number;p.decimal=tokens[0].decimal;return p;
+    }
+  }
   const number=rest.replace(/[a-z%]+$/,'');
   if(number.trim() && /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(number)) {
     p.number=Number(number);p.decimal=!/^[+-]?\d+$/.test(number);
@@ -150,6 +157,9 @@ function extract(input,data,aliases) {
   if(own(p,'keyword')) {
     candidates.push(...data.all.filter(c=>{const [prop,value]=c.split(' ');return value&&subsequence(prop,p.name.toLowerCase())&&subsequence(value,p.keyword.toLowerCase());}));
   } else if(!own(p,'color')||own(p,'number'))candidates.push(...data.all);
+  if(p.numbers)candidates=candidates.filter(c=>/^(?:margin|padding|inset|border-radius|gap|margin-inline|margin-block|padding-inline|padding-block|inset-inline|inset-block|scroll-margin|scroll-padding|background-position|background-size)$/.test(c));
+  // Cursor abbreviations must begin with cu (full cursor names also qualify).
+  if(!p.name.toLowerCase().startsWith('cu'))candidates=candidates.filter(c=>c.split(' ')[0]!=='cursor');
   let abbr=(p.name+' '+(p.keyword||'')).trim();
   if(!aliases[p.important?input.slice(0,-1):input])abbr=(aliases[abbr]||abbr).replace(/:$/,'');
   const pair=Object.keys(aliases).find(a=>a.endsWith('...')&&abbr.startsWith(a.slice(0,-3)));
@@ -183,13 +193,14 @@ function colorExpand(color,alpha=1) {
     default:return color;
   }
   if(alpha==='.'||Number(alpha)<1) {
-    if(alpha==='.')alpha='.${1:5}';if(alpha==='.0'||alpha===0)alpha='0';
+    if(alpha==='.')alpha='.__HAYAKU_ALPHA__';if(alpha==='.0'||alpha===0)alpha='0';
     if(color.length===3)color=[...color].map(c=>c+c).join('');
     return `rgba(${parseInt(color.slice(0,2),16)},${parseInt(color.slice(2,4),16)},${parseInt(color.slice(4),16)},${alpha})`;
   }
   return '#'+color;
 }
 function valueOf(p,data,o) {
+  if(p.numbers)return p.numbers.map(t=>valueOf({...t,name:p.name,color:undefined},data,o)).join(' ');
   if(own(p,'keyword'))return p.keyword;
   const vals=data.flat[p.name]||[];
   if(vals.includes('<color_values>'))return colorExpand(p.color||'',p.alpha===undefined?1:p.alpha);
@@ -224,12 +235,26 @@ function restyle(value,o) {
 const escape = value=>value.replaceAll('\\','\\\\').replaceAll('$','\\$').replaceAll('}','\\}');
 function expand(request={}) {
   const language=request.language||'css',ds=dictionaries(request);
+  if(request.action==='metadata')return clone(ds.modern.dict[request.property]||{});
   if(request.action==='values')return [...new Set((ds.modern.flat[request.property]||[]).filter(v=>/^[a-z-]+$/.test(v)))];
   const abbr=request.abbr||'';if(!abbr||abbr.length>128)return null;
   const o={CSS_whitespace_after_colon:' ',CSS_syntax_no_semicolons:['sass','stylus'].includes(language),CSS_syntax_no_colons:language==='stylus',
     CSS_prefixes_align:!['sass','stylus'].includes(language),CSS_colors_case:'uppercase',CSS_colors_length:'short',CSS_syntax_quote_symbol:'"',CSS_clipboard_defaults:['colors','images']};
   for(const [k,v] of Object.entries(request.options||{}))o[k.replace(/^hayaku_/,'')]=v;
-  const resolved=(ds.aliases[abbr]||abbr).replaceAll(': ',':'), name=segmentation(resolved).name;
+  let resolved=ds.aliases[abbr]||abbr;
+  const originalName=segmentation(abbr).name;
+  if(!ds.aliases[abbr]&&!own(ds.modern.dict,originalName)&&!own(ds.legacy.dict,originalName)) {
+    const prefix=['mbm','of','ar','mi'].find(a=>{
+      if(!abbr.startsWith(a)||!ds.aliases[a]?.endsWith(':'))return false;
+      const suffix=abbr.slice(a.length),property=ds.aliases[a].slice(0,-1);
+      if(a==='mi'&&/^[wh](?:$|[\d:.!+\-])/.test(suffix))return false;
+      return !suffix||/^[\d:.!+\-]/.test(suffix)||
+        (ds.modern.flat[property]||[]).some(v=>/^[a-z-]+$/.test(v)&&subsequence(v,suffix.replace(/!$/,'')));
+    });
+    if(prefix)resolved=ds.aliases[prefix]+abbr.slice(prefix.length).replace(/^:/,'');
+  }
+  resolved=resolved.replaceAll(': ',':');
+  const name=segmentation(resolved).name;
   let data=ds.modern,p;
   if(!(own(ds.modern.dict,name)&&!own(ds.legacy.dict,name))) {p=extract(resolved,ds.legacy,ds.aliases);if(p)data=ds.legacy;}
   p=p||extract(resolved,data,ds.aliases);
@@ -243,10 +268,22 @@ function expand(request={}) {
   if(placeholder) {
     value=p.default??'';const clip=(request.clipboard||'').trim(),symbols=flatten(data.dict,p.name,true);
     if(symbols.includes('<color_values>')&&o.CSS_clipboard_defaults.includes('colors')&&/^(#?([a-fA-F\d]{3}|[a-fA-F\d]{6})|(rgb|hsl)a?\([^\)]+\))$/.test(clip))value=/^(#|rgb|hsl)/.test(clip)?clip:'#'+clip;
-    if(symbols.includes('<url>')&&o.CSS_clipboard_defaults.includes('images')&&/^[^\s]+\.(jpg|jpeg|gif|png)$/.test(clip))value='url("'+clip+'")';
+    if(symbols.includes('<url>')&&o.CSS_clipboard_defaults.includes('images')&&/^[^\s]+\.(jpg|jpeg|gif|png)$/.test(clip)){const q=(o.CSS_syntax_url_quotes??['sass','stylus'].includes(language))?o.CSS_syntax_quote_symbol:'';value='url('+q+clip+q+')';}
   }
+  const templates={
+    'linear-gradient()':'linear-gradient(${1:to bottom}, ${2:#000} ${3:0}, ${4:#FFF} ${5:100%})',
+    'repeating-linear-gradient()':'repeating-linear-gradient(${1:to bottom}, ${2:#000} ${3:0}, ${4:#FFF} ${5:25%})',
+    'radial-gradient()':'radial-gradient(${1:circle at center}, ${2:#000} ${3:0}, ${4:#FFF} ${5:100%})',
+    'repeating-radial-gradient()':'repeating-radial-gradient(${1:circle at center}, ${2:#000} ${3:0}, ${4:#FFF} ${5:25%})',
+    ...(o.CSS_function_snippets||{})
+  };
+  const functionSnippet=o.CSS_enable_function_snippets!==false&&templates[value];
+  const alphaPlaceholder=own(p,'color')&&p.alpha==='.';
   value=escape(restyle(String(value),o));
-  value=placeholder?'${1:'+value+'}':value.replace('()','(${1})');
+  if(alphaPlaceholder)value=value.replace('__HAYAKU_ALPHA__','${1:5}');
+  if(functionSnippet)value=functionSnippet;
+  value=placeholder?'${1:'+value+'}':(o.CSS_enable_function_snippets===false?value:value.replace(/\b(rotate(?:X|Y|Z)?|skew(?:X|Y)?)\(\)/g,'$1(${1}${1/^(-?(?:[0-9]*\\.[0-9]+|[0-9]+))$/${1:+deg}/})')).replace('()','(${1})');
+  if(o.CSS_syntax_url_quotes??['sass','stylus'].includes(language))value=value.replace('url(${1})','url('+o.CSS_syntax_quote_symbol+'${1}'+o.CSS_syntax_quote_symbol+')');
   const item=data.dict[p.name];let names=[p.name];
   if(!o.CSS_prefixes_disable) {
     let prefixes=item.prefixes||[];

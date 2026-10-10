@@ -69,7 +69,7 @@ Cmd+Enterは空白以外の文字がある行の末尾でのみブロックを�
 
 ## 設定
 
-設定画面で `@ext:tikusieg.hayaku-vscode` を検索してください。説明文は日本語です。以下のスイッチはすべて既定でオンです。
+設定画面で `@ext:tikusieg.hayaku-vscode` を検索してください。説明文は日本語です。以下のスイッチは、ベンダープレフィックス無効化を除いて既定でオンです。
 
 | 設定キー | 機能 |
 |---|---|
@@ -81,6 +81,7 @@ Cmd+Enterは空白以外の文字がある行の末尾でのみブロックを�
 | `hayaku.enableValueCyclingShortcuts` | 数値変更のキー操作 |
 | `hayaku.enableSnippetNavigation` | Tabで入力欄を移動する操作を優先 |
 | `hayaku.clipboardDefaults` | コピーした色・画像パスを初期値に利用 |
+| `hayaku.disableVendorPrefixes` | ベンダープレフィックスを無効化（既定でオフ） |
 
 その他に `hayaku.userSnippetDirectories`、`hayaku.options`、`hayaku.aliases`、`hayaku.dictionary` があります。数値変更のキーだけを無効にする例：
 
@@ -99,8 +100,8 @@ MicrosoftのVS Code CSSデータを元にプロパティ377件を追加してい
 完全互換ではありません。主な制限：
 
 - HTML/Vueなどの埋め込みCSS、異なる略記の複数カーソル同時展開は未対応。
-- Sublime専用のライブ変換は、Tabで確定する後展開に置き換えています。
-- 元版の特殊な関数スニペット、日付・バージョン変更、独自の行移動、設定自動移行などは未移植。
+- 入力中の後展開はHayakuで作った単一の入力欄が対象です。Sublime版のスニペット変換と完全に同じ仕組みではありません。
+- 日付・バージョン変更、独自の行移動、設定自動移行などは未移植。
 - 関数・複合値・文脈の解析は限定的です。最新CSSの全構文を扱うものではありません。
 - `isFileTemplate`、`include` / `exclude` 付きの自作スニペットは自動優先の対象外。
 - VS Code実画面でのキー競合は未検証です。
@@ -139,3 +140,27 @@ MIT。元のHayakuの著作権表記を [LICENSE](LICENSE) に残しています
 0.4.2ではTabの言語・設定判定を見直しました。以前手動で追加したhayaku.expandのTab割り当ては削除し、拡張の既定設定をご利用ください。
 
 0.5.0では略記エンジンをJavaScriptに移植しました。旧設定 `hayaku.pythonPath` は使用しないため、設定ファイルに残っていれば削除できます。自作スニペット優先、各機能のオンオフ、日本語の設定説明は引き継いでいます。
+
+### 優先する略記
+
+`of` は `object-fit`、`ar` は `aspect-ratio`、`mi` は `margin-inline`、`mbm` は `mix-blend-mode` を優先します。`mi16` → `margin-inline: 16px;`、`mia` → `margin-inline: auto;`、`ar16/9` → `aspect-ratio: 16/9;` のように値を続けられます。
+
+cursorは `cu` から始めて入力します。`cup` → `cursor: pointer;`、`cud` → `cursor: default;`。従来の `cp` などはcursorの略記として扱いません。独自の略記を設定した場合は、その設定を優先します。
+
+数値をハイフンで区切ると複数の値を指定できます。`p6-10` → `padding: 6px 10px;`、`m6-10-12-14` → `margin: 6px 10px 12px 14px;`。単位付きの `p6px-10rem` や負数の `m-6--10` にも対応します。
+
+### 0.5.9で追加した入力支援
+
+- CSSのルール内で `//` を入力すると `/* 入力欄 */` に変換します。Sass/SCSS等の行コメントは変換しません。
+- Hayakuで作った値入力欄では、入力中に単位・キーワード・色を補完します。`w` → Tab → `10` で `width: 10px;`。RGBAの `255,`、`255,.` や `!im` も扱います。Tabによる確定も引き続き使えます。
+- 数値の一部を選択すると、その桁に応じて増減します。`123` の `1` を選択して増やすと `223` になります。widthなどの非負の値は0を下限にします。
+- コマンド「Hayaku: カーソル付近のキーワードを変更」で `position: static` などの値を順送りします。Alt+↑/↓で使うには「キーワード変更のキー操作」をオンにします。初期状態はオフなので、数値以外での行移動は維持されます。
+- `bgi:linear-gradient()` などに複数の入力欄を用意します。`trf:rotate()`、`trf:skew()` の数値には入力欄の確定時に `deg` を補完します。
+
+これらは設定画面の「Hayaku」で個別にオン・オフできます。「入力中の後展開」「CSSのコメント変換」「選択した桁の数値変更」「数値変更の下限」「キーワードの値変更」「関数の入力支援」を参照してください。
+
+`hayaku.options` の `CSS_syntax_url_quotes` でURLの引用符を指定できます。未指定ではCSS系は引用符なし、Sass/Stylusは引用符ありです。`CSS_syntax_quote_symbol` で引用符の種類を指定します。
+
+ブロックの書式は `CSS_whitespace_block_start_before` / `after`、`CSS_whitespace_block_end_before` / `after`、`CSS_syntax_no_curly_braces` で変更できます。`CSS_syntax_autoguess` に `selector {`、`  property: value;`、`}` のような行の配列を指定して書式を設定することもできます。これは現在のファイルを読み取って書式を推測する機能ではありません。個別に指定した設定を優先します。
+
+`CSS_function_snippets` は関数値とスニペット文字列の対応を指定するオブジェクトです。例えば `linear-gradient()` の入力欄を変更できます。ユーザー辞書はオブジェクト形式のほか元版の配列形式も使え、`remove_values` だけの指定にも対応します。

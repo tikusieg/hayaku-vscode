@@ -19,7 +19,7 @@ function context(text, language) {
 function candidate(before, after, language) {
   if (!context(before, language) || !/^\s*(?:[;}\r\n]|$)/.test(after)) return null;
   const segment = before.split(/[;{}\n]/).pop();
-  const match = /^(\s*)([a-z$@+][a-zA-Z0-9:#.%!_+\-]*)$/.exec(segment);
+  const match = /^(\s*)([a-z$@+][a-zA-Z0-9:#.%!_+\-/(),]*)$/.exec(segment);
   return match ? match[2] : null;
 }
 module.exports = {run, context, candidate};

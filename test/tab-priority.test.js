@@ -4,7 +4,7 @@ const vm=require('node:vm');
 const fs=require('node:fs');
 const core=require('../core');
 function harness(text, language='css', snippets=[], pick=0, settings={}) {
-  const commands={},contexts={},calls=[],listeners={};
+  const commands={},contexts={},calls=[],listeners={},requests=[];
   const lines=text.split('\n'),line=lines.length-1,character=lines[line].length;
   const active={line,character,translate:(a,b)=>({line:line+a,character:character+b})};
   const selection={active,isEmpty:true,isEqual:other=>other===selection};
@@ -14,23 +14,27 @@ function harness(text, language='css', snippets=[], pick=0, settings={}) {
   const vscode={
     window:{createOutputChannel:()=>({dispose(){},appendLine(){}}),
       showQuickPick:async items=>pick===null?undefined:items[pick],activeTextEditor:editor,onDidChangeActiveTextEditor:on('editor'),onDidChangeTextEditorSelection:on('selection'),showErrorMessage:msg=>{throw Error(msg);}},
-    workspace:{isTrusted:true,onDidChangeTextDocument:on('document'),onDidChangeConfiguration:on('configuration'),getConfiguration:()=>({get:(key,fallback)=>key in settings?settings[key]:key==='clipboardDefaults'?false:fallback})},
+    workspace:{isTrusted:true,onDidChangeTextDocument:on('document'),onDidChangeConfiguration:on('configuration'),getConfiguration:()=>({
+      get:(key,fallback)=>key in settings?settings[key]:key==='clipboardDefaults'?false:fallback,
+      inspect:key=>key==='disableVendorPrefixes'&&key in settings?{globalValue:settings[key]}:{defaultValue:false}
+    })},
     commands:{registerCommand:(id,fn)=>{commands[id]=fn;return {dispose(){}};},
       executeCommand:async(id,...args)=>{calls.push([id,...args]);if(id==='setContext')contexts[args[0]]=args[1];}},
     Range:class {constructor(start,end){this.start=start;this.end=end;}},
     SnippetString:class {constructor(value){this.value=value;}}
   };
   const mockCore={...core,run:async(request)=>{
+    requests.push(request);
     assert.ok(calls.some(([id])=>id==='hideSuggestWidget'),'suggestions hidden before expansion');
     assert.equal(request.abbr,'mb');
     return {snippet:'margin-bottom: ${1:};$0',postexpand:true,prefix:'margin-bottom: ',property:'margin-bottom'};
   }};
   const module={exports:{}};
   vm.runInNewContext(fs.readFileSync(require.resolve('../extension'),'utf8'),{
-    module,require:id=>id==='vscode'?vscode:id==='./user-snippets'?{load:async()=>snippets,matching:require('../user-snippets').matching}:mockCore
+    module,require:id=>id==='vscode'?vscode:id==='./features'?require('../features'):id==='./user-snippets'?{load:async()=>snippets,matching:require('../user-snippets').matching}:mockCore
   });
   module.exports.activate({subscriptions:[]});
-  return {commands,contexts,calls,listeners,editor};
+  return {commands,contexts,calls,listeners,editor,requests};
 }
 test('mb expands with one command even with suggestions; no completion is accepted',async()=>{
   const h=harness('.x {\n  mb');
@@ -64,6 +68,21 @@ test('automatic suggestions are not disabled and snippet navigation is protected
   const binding=contribution.keybindings.find(b=>b.command==='hayaku.expand');
   assert.match(binding.when,/!inSnippetMode/);
   assert.ok(!binding.when.includes('hayaku.canExpand'));
+});
+
+test('vendor prefix setting is exposed and preserves advanced options unless explicitly set',async()=>{
+  const setting=require('../package.json').contributes.configuration.properties['hayaku.disableVendorPrefixes'];
+  assert.equal(setting.type,'boolean');
+  assert.equal(setting.default,false);
+  let h=harness('.x {\n  mb','css',[],0,{options:{CSS_prefixes_disable:true}});
+  await h.commands['hayaku.expand']();
+  assert.equal(h.requests[0].options.CSS_prefixes_disable,true);
+  h=harness('.x {\n  mb','css',[],0,{options:{CSS_prefixes_disable:true},disableVendorPrefixes:false});
+  await h.commands['hayaku.expand']();
+  assert.equal(h.requests[0].options.CSS_prefixes_disable,false);
+  h=harness('.x {\n  mb','css',[],0,{disableVendorPrefixes:true});
+  await h.commands['hayaku.expand']();
+  assert.equal(h.requests[0].options.CSS_prefixes_disable,true);
 });
 
 test('user snippet Tab advances a field without expanding or accepting suggestions',async()=>{
