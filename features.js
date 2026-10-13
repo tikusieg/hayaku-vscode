@@ -52,6 +52,8 @@ async function adjustedNumber(text,target,step,settings) {
   return String(value);
 }
 async function postValue(property,raw,settings,liveOptions={}) {
+  // Preserve Sass variables and interpolation as authored, including partial names.
+  if(raw.includes('$'))return null;
   if(/^[a-z-]+$/.test(raw)) {
     if(liveOptions.keywords===false)return null;
     const values=await run({...settings,action:'values',property});

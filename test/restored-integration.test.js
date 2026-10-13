@@ -1,12 +1,12 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
-function editorHarness(initial,settings={}) {
+function editorHarness(initial,settings={},language='css') {
   let text=initial,version=1;const listeners={},commands={},contexts={},inserts=[];
   class Position {constructor(line,character){this.line=line;this.character=character;}translate(l,c){return new Position(this.line+l,this.character+c);}}
   class Selection {constructor(start,end){this.start=start;this.end=end;this.active=end;this.isEmpty=start.line===end.line&&start.character===end.character;}isEqual(other){return this.start.line===other.start.line&&this.start.character===other.start.character&&this.end.line===other.end.line&&this.end.character===other.end.character;}}
   class Range {constructor(start,end){this.start=start;this.end=end;}}
   const offsetAt=p=>text.split('\n').slice(0,p.line).reduce((n,l)=>n+l.length+1,0)+p.character;
   const positionAt=n=>{const a=text.slice(0,n).split('\n');return new Position(a.length-1,a.at(-1).length);};
-  const doc={languageId:'css',uri:{},get version(){return version;},getText:()=>text,lineAt:n=>({text:text.split('\n')[n]}),offsetAt,positionAt};
+  const doc={languageId:language,uri:{},get version(){return version;},getText:()=>text,lineAt:n=>({text:text.split('\n')[n]}),offsetAt,positionAt};
   const editor={document:doc,selections:[new Selection(positionAt(text.length),positionAt(text.length))],get selection(){return this.selections[0];},set selection(s){this.selections=[s];},
     edit:async fn=>{const edits=[];fn({replace:(range,value)=>edits.push({range,value})});for(const e of edits.sort((a,b)=>offsetAt(b.range.start)-offsetAt(a.range.start))){const from=offsetAt(e.range.start),to=offsetAt(e.range.end);text=text.slice(0,from)+e.value+text.slice(to);}version++;listeners.document?.({document:doc,contentChanges:edits.map(e=>({range:e.range,text:e.value}))});return true;},
     insertSnippet:async(snippet,range)=>{inserts.push(snippet.value);range=Array.isArray(range)?range[0]:range||editor.selection;const start=offsetAt(range.start),end=offsetAt(range.end),m=/\$\{1(?::([^}]*))?\}/.exec(snippet.value);const plain=snippet.value.replace(/\$\{1(?::([^}]*))?\}/g,(_,v)=>v||'').replace(/\$0/g,'');text=text.slice(0,start)+plain+text.slice(end);version++;const a=m?start+m.index:start+plain.length,b=m?a+(m[1]||'').length:a;editor.selection=new Selection(positionAt(a),positionAt(b));}
@@ -54,4 +54,13 @@ test('padding-right accepts typed sp() without replacing it with unset',async()=
 test('keyword completion has its own switch while numeric completion stays enabled',async()=>{
   const h=editorHarness('.x {\n po',{enableLiveKeywordCompletion:false});await h.commands['hayaku.expand']();await h.type('a');assert.equal(h.text,'.x {\n position: a;');
   const w=editorHarness('.x {\n w',{enableLiveKeywordCompletion:false});await w.commands['hayaku.expand']();await w.type('1');assert.equal(w.text,'.x {\n width: 1px;');
+});
+
+test('SCSS variable typing and accepted suggestions are preserved through Tab',async()=>{
+  const h=editorHarness('.x {\n c',{},'scss');await h.commands['hayaku.expand']();
+  for(const c of '$black')await h.type(c);
+  assert.equal(h.text,'.x {\n color: $black;');
+  await h.commands['hayaku.postexpand']();assert.equal(h.text,'.x {\n color: $black;');
+  const completion=editorHarness('.x {\n c',{},'scss');await completion.commands['hayaku.expand']();await completion.type('$black');
+  await completion.commands['hayaku.cycleKeyword'](1);assert.equal(completion.text,'.x {\n color: $black;');
 });

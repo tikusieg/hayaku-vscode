@@ -97,6 +97,7 @@ function activate(context) {
     const end=line.indexOf(';',start),limit=end<0?line.length:end;
     if(active.character>limit||change.range.start.line!==active.line||change.range.start.character<start)return;
     const raw=line.slice(start,active.character);
+    if(raw.includes('$'))return;
     if(!raw){
       if(!change.text&&session.liveValue){typingEdit=true;try{await editor.edit(edit=>edit.replace(new vscode.Range(new vscode.Position(active.line,start),new vscode.Position(active.line,limit)),''),{undoStopBefore:false,undoStopAfter:false});editor.selection=new vscode.Selection(active,active);}finally{typingEdit=false;}session.liveValue=undefined;}
       return;

@@ -2,7 +2,7 @@
   "name": "hayaku-vscode",
   "displayName": "Hayaku for VS Code (Unofficial)",
   "description": "Hayakuの略記展開と自作スニペットを組み合わせた、CSS入力支援の非公式移植版です。",
-  "version": "0.5.10",
+  "version": "0.5.12",
   "publisher": "tikusieg",
   "license": "MIT",
   "engines": {

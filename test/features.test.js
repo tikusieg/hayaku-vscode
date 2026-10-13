@@ -69,3 +69,10 @@ test('function templates and positive value limits can be switched off',async()=
   assert.equal(await adjustedNumber('.x { width: 0px',{start:12,value:0},-1,{options:{CSS_cycle_positive_limits:false}}),'-1');
   assert.equal((await run({abbr:'bgi:url()',options:{CSS_syntax_url_quotes:true}})).snippet,'background-image: url("${1}");$0');
 });
+
+test('partial Sass variables and interpolation bypass postexpansion and cycling',async()=>{
+  for(const raw of ['$','$b','$black','$black-100','#{$black}'])assert.equal(await postValue('color',raw,{language:'scss'}),null);
+  for(const raw of ['$black','$black-100','#{$black}']){
+    const text='.x { color: '+raw;assert.equal(keywordTarget(text,text.length,'scss'),null);
+  }
+});

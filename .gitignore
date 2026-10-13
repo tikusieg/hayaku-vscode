@@ -154,3 +154,6 @@ __pycache__/
 *.vsix
 work/
 .DS_Store
+
+# Personal documentation
+README.private.md

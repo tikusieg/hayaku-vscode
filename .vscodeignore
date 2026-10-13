@@ -7,3 +7,5 @@ scripts/**
 *.vsix
 .gitignore
 
+# Personal documentation
+README.private.md
