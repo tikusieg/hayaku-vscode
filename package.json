@@ -2,7 +2,7 @@
   "name": "hayaku-vscode",
   "displayName": "Hayaku for VS Code (Unofficial)",
   "description": "Hayakuの略記展開と自作スニペットを組み合わせた、CSS入力支援の非公式移植版です。",
-  "version": "0.5.12",
+  "version": "0.5.13",
   "publisher": "tikusieg",
   "license": "MIT",
   "engines": {
@@ -71,7 +71,7 @@
       {
         "key": "tab",
         "command": "hayaku.expand",
-        "when": "editorTextFocus && !editorReadonly && !editorTabMovesFocus && !inSnippetMode && (editorLangId == css || editorLangId == scss || editorLangId == less || editorLangId == sass || editorLangId == stylus || editorLangId == postcss) && (config.hayaku.enableAbbreviations != false || config.hayaku.enableUserSnippets != false)"
+        "when": "editorTextFocus && !editorReadonly && !editorTabMovesFocus && !suggestWidgetVisible && !inSnippetMode && (editorLangId == css || editorLangId == scss || editorLangId == less || editorLangId == sass || editorLangId == stylus || editorLangId == postcss) && (config.hayaku.enableAbbreviations != false || config.hayaku.enableUserSnippets != false)"
       },
       {
         "key": "ctrl+enter",

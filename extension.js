@@ -76,6 +76,39 @@ function activate(context) {
     return {options:styleOptions(options), aliases:c.get('aliases',{}),
       dictionary:c.get('dictionary',{}), language:editor.document.languageId, clipboardDefaults:c.get('clipboardDefaults',true)};
   }
+  // Suggestions use the same contextual abbreviation parser and engine as Tab.
+  context.subscriptions.push(vscode.languages.registerCompletionItemProvider(
+    ['css','scss','less','sass','stylus','postcss'], {
+      async provideCompletionItems(document, position, token) {
+        if(!vscode.workspace.isTrusted || !enabled({document},'enableAbbreviations')) return [];
+        const version=document.version, text=document.getText(), offset=document.offsetAt(position);
+        const abbr=candidate(text.slice(0,offset),text.slice(offset),document.languageId);
+        if(!abbr || token.isCancellationRequested) return [];
+        const c=config({document});
+        const result=await run({...c,abbr,clipboard:c.clipboardDefaults?await vscode.env.clipboard.readText():''});
+        if(!result || token.isCancellationRequested || document.version!==version) return [];
+        const start=position.translate(0,-abbr.length);
+        const item=new vscode.CompletionItem(abbr,vscode.CompletionItemKind.Snippet);
+        item.detail='Hayaku';
+        item.documentation=result.snippet.replace(/\$\{\d+(?::([^}]*))?\}/g,(_,value)=>value||'').replace(/\$\d+/g,'');
+        item.label={label:abbr,description:'Hayaku',detail:' → '+item.documentation};
+        item.insertText=new vscode.SnippetString(result.snippet);
+        item.range=new vscode.Range(start,position);
+        item.filterText=abbr;
+        item.command={command:'hayaku.completionAccepted',title:'Hayaku',
+          arguments:[document.uri,start,result]};
+        return {items:[item],isIncomplete:true};
+      }
+    }, '.', ':', '-', '/', '%', '#', '!', ',', '(', ')'
+  ));
+  register('hayaku.completionAccepted',async(editor,uri,start,result)=>{
+    clearValue();
+    if(editor.document.uri.toString()!==uri.toString() || editor.selections.length!==1 ||
+       !enabled(editor,'enablePostexpand') || !result.postexpand) return;
+    if(!editor.document.lineAt(start.line).text.slice(start.character).startsWith(result.prefix)) return;
+    valueSession={editor,start,prefix:result.prefix,property:result.property};
+    await vscode.commands.executeCommand('setContext','hayaku.valueActive',true);
+  });
   async function handleTyping(event) {
     const editor=vscode.window.activeTextEditor;
     if(!editor||event.document!==editor.document||!vscode.workspace.isTrusted||editor.selections.length!==1||event.reason||event.contentChanges.length!==1)return;

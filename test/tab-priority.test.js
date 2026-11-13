@@ -11,7 +11,10 @@ function harness(text, language='css', snippets=[], pick=0, settings={}) {
   const document={languageId:language,version:1,uri:{},getText:()=>text,lineAt:n=>({text:lines[n]}),positionAt:offset=>({line:0,character:offset}),offsetAt:()=>text.length};
   const editor={document,selections:[selection],edit:async callback=>{callback({replace:(range,value)=>calls.push(['replace',value])});return true;},insertSnippet:async snippet=>calls.push(['insert',snippet.value])};
   const on=name=>callback=>{listeners[name]=callback;return {dispose(){}};};
+  let provider;
   const vscode={
+    languages:{registerCompletionItemProvider:(_selector,value)=>{provider=value;return {dispose(){}};}},
+    CompletionItem:class {constructor(label,kind){this.label=label;this.kind=kind;}},CompletionItemKind:{Snippet:15},
     window:{createOutputChannel:()=>({dispose(){},appendLine(){}}),
       showQuickPick:async items=>pick===null?undefined:items[pick],activeTextEditor:editor,onDidChangeActiveTextEditor:on('editor'),onDidChangeTextEditorSelection:on('selection'),showErrorMessage:msg=>{throw Error(msg);}},
     workspace:{isTrusted:true,onDidChangeTextDocument:on('document'),onDidChangeConfiguration:on('configuration'),getConfiguration:()=>({
@@ -25,7 +28,7 @@ function harness(text, language='css', snippets=[], pick=0, settings={}) {
   };
   const mockCore={...core,run:async(request)=>{
     requests.push(request);
-    assert.ok(calls.some(([id])=>id==='hideSuggestWidget'),'suggestions hidden before expansion');
+
     assert.equal(request.abbr,'mb');
     return {snippet:'margin-bottom: ${1:};$0',postexpand:true,prefix:'margin-bottom: ',property:'margin-bottom'};
   }};
@@ -34,7 +37,7 @@ function harness(text, language='css', snippets=[], pick=0, settings={}) {
     module,require:id=>id==='vscode'?vscode:id==='./features'?require('../features'):id==='./user-snippets'?{load:async()=>snippets,matching:require('../user-snippets').matching}:mockCore
   });
   module.exports.activate({subscriptions:[]});
-  return {commands,contexts,calls,listeners,editor,requests};
+  return {commands,contexts,calls,listeners,editor,requests,provider};
 }
 test('mb expands with one command even with suggestions; no completion is accepted',async()=>{
   const h=harness('.x {\n  mb');
@@ -67,6 +70,7 @@ test('automatic suggestions are not disabled and snippet navigation is protected
   assert.equal(contribution.configurationDefaults,undefined);
   const binding=contribution.keybindings.find(b=>b.command==='hayaku.expand');
   assert.match(binding.when,/!inSnippetMode/);
+  assert.match(binding.when,/!suggestWidgetVisible/);
   assert.ok(!binding.when.includes('hayaku.canExpand'));
 });
 
@@ -154,4 +158,34 @@ test('block insertion with selected text uses VS Code insert-line-after command'
   await h.commands['hayaku.block']();
   assert.ok(h.calls.some(([id])=>id==='editor.action.insertLineAfter'));
   assert.ok(!h.calls.some(([id])=>id==='insert'));
+});
+
+test('suggestions preview the expansion and replace the full abbreviation',async()=>{
+  const h=harness('.x {\n  mb');
+  const completion=await h.provider.provideCompletionItems(h.editor.document,h.editor.selections[0].active,{isCancellationRequested:false});
+  assert.equal(completion.isIncomplete,true);
+  const items=completion.items;
+  assert.equal(items.length,1);
+  const item=items[0];
+  assert.equal(item.label.detail,' → margin-bottom: ;');
+  assert.equal(item.insertText.value,'margin-bottom: ${1:};$0');
+  assert.equal(item.range.start.character,2);
+  assert.equal(item.range.end.character,4);
+  assert.equal(item.filterText,'mb');
+  assert.ok(!h.calls.some(([id])=>id==='insert'||id==='hideSuggestWidget'));
+  h.editor.document.lineAt=()=>({text:'  margin-bottom: ;'});
+  await h.commands[item.command.command](...item.command.arguments);
+  assert.equal(h.contexts['hayaku.valueActive'],true);
+});
+test('suggestions respect cancellation, settings and CSS context',async()=>{
+  for(const [text,settings,cancelled] of [
+    ['.x {\n  mb',{enableAbbreviations:false},false],
+    ['.x {\n  mb',{},true],['.x {\n  /* mb',{},false],
+    ['.x {\n  content: "mb',{},false],['mb',{},false],['.x {\n  ',{},false]
+  ]) {
+    const h=harness(text,'css',[],0,settings);
+    const items=await h.provider.provideCompletionItems(h.editor.document,h.editor.selections[0].active,{isCancellationRequested:cancelled});
+    assert.equal(items.length,0,text);
+    assert.equal(h.requests.length,0);
+  }
 });
