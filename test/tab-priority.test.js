@@ -172,6 +172,8 @@ test('suggestions preview the expansion and replace the full abbreviation',async
   assert.equal(item.range.start.character,2);
   assert.equal(item.range.end.character,4);
   assert.equal(item.filterText,'mb');
+  assert.equal(item.sortText,'\u0000mb');
+  assert.equal(item.preselect,true);
   assert.ok(!h.calls.some(([id])=>id==='insert'||id==='hideSuggestWidget'));
   h.editor.document.lineAt=()=>({text:'  margin-bottom: ;'});
   await h.commands[item.command.command](...item.command.arguments);

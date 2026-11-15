@@ -95,6 +95,8 @@ function activate(context) {
         item.insertText=new vscode.SnippetString(result.snippet);
         item.range=new vscode.Range(start,position);
         item.filterText=abbr;
+        item.sortText='\u0000'+abbr;
+        item.preselect=true;
         item.command={command:'hayaku.completionAccepted',title:'Hayaku',
           arguments:[document.uri,start,result]};
         return {items:[item],isIncomplete:true};

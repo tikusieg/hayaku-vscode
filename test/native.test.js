@@ -2,6 +2,12 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {expand}=require('../engine/native');
 const {execFileSync}=require('node:child_process');
+test('r expands to right ahead of the modern r property',()=>{
+  for(const language of ['css','scss','less','sass','stylus','postcss']) {
+    assert.equal(expand({abbr:'r',language}).property,'right',language);
+    assert.equal(expand({abbr:'r10',language}).property,'right',language);
+  }
+});
 test('runtime expands without permitting child processes',()=>{
   const script=`const Module=require('node:module');const load=Module._load;
     Module._load=function(id,...args){if(['child_process','node:child_process'].includes(id))throw Error('subprocess dependency');return load.call(this,id,...args);};

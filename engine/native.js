@@ -202,6 +202,7 @@ function colorExpand(color,alpha=1) {
 function valueOf(p,data,o) {
   if(p.numbers)return p.numbers.map(t=>valueOf({...t,name:p.name,color:undefined},data,o)).join(' ');
   if(own(p,'keyword'))return p.keyword;
+  if(p.name==='rotate'&&own(p,'number'))return numberText(p)+(p.unit||'deg');
   const vals=data.flat[p.name]||[];
   if(vals.includes('<color_values>'))return colorExpand(p.color||'',p.alpha===undefined?1:p.alpha);
   if(vals.some(v=>v.startsWith('.'))) {
@@ -244,7 +245,7 @@ function expand(request={}) {
   let resolved=ds.aliases[abbr]||abbr;
   const originalName=segmentation(abbr).name;
   if(!ds.aliases[abbr]&&!own(ds.modern.dict,originalName)&&!own(ds.legacy.dict,originalName)) {
-    const prefix=['mbm','of','ar','mi'].find(a=>{
+    const prefix=['mbm','of','ar','mi','ro'].find(a=>{
       if(!abbr.startsWith(a)||!ds.aliases[a]?.endsWith(':'))return false;
       const suffix=abbr.slice(a.length),property=ds.aliases[a].slice(0,-1);
       if(a==='mi'&&/^[wh](?:$|[\d:.!+\-])/.test(suffix))return false;

@@ -24,6 +24,16 @@ test('r expands to right while rx remains rotate x',async()=>{
 test('mia expands to margin-inline auto',async()=>{
   assert.equal((await run({abbr:'mia'})).snippet,'margin-inline: auto;$0');
 });
+test('ro prefers rotate and numeric angles default to degrees',async()=>{
+  assert.equal((await run({abbr:'ro'})).snippet,'rotate: ${1:};$0');
+  for(const [abbr,value] of Object.entries({ro180:'180deg','ro-90':'-90deg','ro.5':'0.5deg',ro0:'0deg',
+    'ro:180':'180deg',ro180deg:'180deg','ro.5turn':'0.5turn',ro2rad:'2rad','rotate:180':'180deg',ron:'none'}))
+    assert.equal((await run({abbr})).snippet,`rotate: ${value};$0`,abbr);
+  assert.equal((await run({abbr:'ro180!'})).snippet,'rotate: 180deg !important;$0');
+  assert.equal((await run({abbr:'ro180',language:'sass'})).snippet,'rotate: 180deg$0');
+  assert.equal((await run({abbr:'ro180',language:'stylus'})).snippet,'rotate 180deg$0');
+  assert.equal((await run({abbr:'ro',aliases:{ro:'right:'}})).property,'right');
+});
 test('placeholder, clipboard and misses',async()=>{
   assert.match((await run({abbr:'w'})).snippet,/\$\{1:/);
   assert.match((await run({abbr:'c',clipboard:'#123'})).snippet,/#123/);
