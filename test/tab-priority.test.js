@@ -14,7 +14,7 @@ function harness(text, language='css', snippets=[], pick=0, settings={}) {
   let provider;
   const vscode={
     languages:{registerCompletionItemProvider:(_selector,value)=>{provider=value;return {dispose(){}};}},
-    CompletionItem:class {constructor(label,kind){this.label=label;this.kind=kind;}},CompletionItemKind:{Snippet:15},
+    CompletionItem:class {constructor(label,kind){this.label=label;this.kind=kind;}},CompletionItemKind:{Snippet:15,Property:9},
     window:{createOutputChannel:()=>({dispose(){},appendLine(){}}),
       showQuickPick:async items=>pick===null?undefined:items[pick],activeTextEditor:editor,onDidChangeActiveTextEditor:on('editor'),onDidChangeTextEditorSelection:on('selection'),showErrorMessage:msg=>{throw Error(msg);}},
     workspace:{isTrusted:true,onDidChangeTextDocument:on('document'),onDidChangeConfiguration:on('configuration'),getConfiguration:()=>({
@@ -28,7 +28,7 @@ function harness(text, language='css', snippets=[], pick=0, settings={}) {
   };
   const mockCore={...core,run:async(request)=>{
     requests.push(request);
-
+    if(['w','fs'].includes(request.abbr)) return core.run(request);
     assert.equal(request.abbr,'mb');
     return {snippet:'margin-bottom: ${1:};$0',postexpand:true,prefix:'margin-bottom: ',property:'margin-bottom'};
   }};
@@ -89,11 +89,30 @@ test('vendor prefix setting is exposed and preserves advanced options unless exp
   assert.equal(h.requests[0].options.CSS_prefixes_disable,true);
 });
 
-test('user snippet Tab advances a field without expanding or accepting suggestions',async()=>{
-  const h=harness('.x {\n  mb');
+test('user snippet Tab expands declarations inside a multiline placeholder',async()=>{
+  const h=harness('.x {\n  @include max(md) {\n    w','scss');
+  await h.commands['hayaku.nextSnippet']();
+  assert.equal(h.calls.find(([id])=>id==='insert')[1],'width: ${1:100%};$0');
+  assert.ok(!h.calls.some(([id])=>id==='jumpToNextSnippetPlaceholder'));
+});
+test('user snippet Tab advances empty and selected fields',async()=>{
+  const h=harness('.x {\n  ');
   await h.commands['hayaku.nextSnippet']();
   assert.ok(h.calls.some(([id])=>id==='jumpToNextSnippetPlaceholder'));
   assert.ok(!h.calls.some(([id])=>id==='insert'));
+  const selected=harness('.x {\n  mb');
+  selected.editor.selections[0].isEmpty=false;
+  await selected.commands['hayaku.nextSnippet']();
+  assert.ok(selected.calls.some(([id])=>id==='jumpToNextSnippetPlaceholder'));
+  assert.equal(selected.requests.length,0);
+});
+test('fs expansion precedes snippet navigation through either Tab command',async()=>{
+  for(const command of ['hayaku.nextSnippet','hayaku.postexpand']) {
+    const h=harness('.x {\n  @include max(md) {\n    fs','scss');
+    await h.commands[command]();
+    assert.equal(h.calls.find(([id])=>id==='insert')[1],'font-size: ${1:};$0');
+    assert.ok(!h.calls.some(([id])=>id==='jumpToNextSnippetPlaceholder'));
+  }
 });
 
 test('feature switches independently disable Hayaku and user snippet expansion',async()=>{
@@ -174,10 +193,33 @@ test('suggestions preview the expansion and replace the full abbreviation',async
   assert.equal(item.filterText,'mb');
   assert.equal(item.sortText,'\u0000mb');
   assert.equal(item.preselect,true);
+  assert.equal(item.kind,9);
   assert.ok(!h.calls.some(([id])=>id==='insert'||id==='hideSuggestWidget'));
   h.editor.document.lineAt=()=>({text:'  margin-bottom: ;'});
   await h.commands[item.command.command](...item.command.arguments);
   assert.equal(h.contexts['hayaku.valueActive'],true);
+});
+test('user snippets replace Hayaku suggestions independently of snippet sorting',async()=>{
+  const snippets=[
+    {name:'My margin',prefix:'mb',body:'margin-bottom: ${1:24px};'},
+    {name:'Other margin',prefix:'mb',body:'margin-bottom: ${1:8px};'},
+    {name:'Partial',prefix:'b',body:'bottom: 0;'}
+  ];
+  for(const snippetSuggestions of ['top','bottom','inline','none']) {
+    const h=harness('.x {\n  mb','css',snippets,0,{snippetSuggestions});
+    const result=await h.provider.provideCompletionItems(h.editor.document,h.editor.selections[0].active,{isCancellationRequested:false});
+    assert.equal(result.items.length,2);
+    assert.equal(h.requests.length,0);
+    for(const [index,item] of result.items.entries()) {
+      assert.equal(item.insertText.value,snippets[index].body);
+      assert.equal(item.kind,9);
+      assert.equal(item.preselect,index===0);
+      assert.equal(item.command,undefined);
+    }
+  }
+  const h=harness('.x {\n  mb','css',snippets,0,{enableUserSnippets:false});
+  const result=await h.provider.provideCompletionItems(h.editor.document,h.editor.selections[0].active,{isCancellationRequested:false});
+  assert.equal(result.items[0].detail,'Hayaku');
 });
 test('suggestions respect cancellation, settings and CSS context',async()=>{
   for(const [text,settings,cancelled] of [

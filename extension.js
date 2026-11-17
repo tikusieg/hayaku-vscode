@@ -84,11 +84,30 @@ function activate(context) {
         const version=document.version, text=document.getText(), offset=document.offsetAt(position);
         const abbr=candidate(text.slice(0,offset),text.slice(offset),document.languageId);
         if(!abbr || token.isCancellationRequested) return [];
+        const start=position.translate(0,-abbr.length);
+        // Property items avoid editor.snippetSuggestions reordering these candidates.
+        // SnippetString still supplies tab stops when the item is accepted.
+        if(enabled({document},'enableUserSnippets')) {
+          const snippets=await userSnippets.load(vscode,context,document,warn);
+          if(token.isCancellationRequested || document.version!==version) return [];
+          const matches=userSnippets.matching(snippets,[text.slice(0,offset).split('\n').pop()])
+            .filter(s=>s.prefix===abbr);
+          if(matches.length) return {items:matches.map((s,index)=>{
+            const item=new vscode.CompletionItem({label:abbr,description:s.name},vscode.CompletionItemKind.Property);
+            item.detail='自作スニペット';
+            item.documentation=s.body;
+            item.insertText=new vscode.SnippetString(s.body);
+            item.range=new vscode.Range(start,position);
+            item.filterText=abbr;
+            item.sortText='\u0000'+abbr+' '+String(index).padStart(6,'0');
+            item.preselect=index===0;
+            return item;
+          }),isIncomplete:true};
+        }
         const c=config({document});
         const result=await run({...c,abbr,clipboard:c.clipboardDefaults?await vscode.env.clipboard.readText():''});
         if(!result || token.isCancellationRequested || document.version!==version) return [];
-        const start=position.translate(0,-abbr.length);
-        const item=new vscode.CompletionItem(abbr,vscode.CompletionItemKind.Snippet);
+        const item=new vscode.CompletionItem(abbr,vscode.CompletionItemKind.Property);
         item.detail='Hayaku';
         item.documentation=result.snippet.replace(/\$\{\d+(?::([^}]*))?\}/g,(_,value)=>value||'').replace(/\$\d+/g,'');
         item.label={label:abbr,description:'Hayaku',detail:' → '+item.documentation};
@@ -157,9 +176,10 @@ function activate(context) {
   register('hayaku.nextSnippet', async editor => {
     if(!enabled(editor,'enableSnippetNavigation')) return;
     await vscode.commands.executeCommand('hideSuggestWidget');
-    await vscode.commands.executeCommand('jumpToNextSnippetPlaceholder');
+    await expandEditor(editor,'jumpToNextSnippetPlaceholder');
   });
-  register('hayaku.expand', async editor => {
+  register('hayaku.expand', editor => expandEditor(editor));
+  async function expandEditor(editor, fallback='tab') {
     const selections=[...editor.selections], version=editor.document.version, c=config(editor);
     const text=editor.document.getText();
     // User-authored snippets are resolved before invoking the Hayaku engine.
@@ -186,21 +206,21 @@ function activate(context) {
         return;
       }
     }
-    if(!enabled(editor,'enableAbbreviations')) return vscode.commands.executeCommand('tab');
+    if(!enabled(editor,'enableAbbreviations')) return vscode.commands.executeCommand(fallback);
     const ranges=[];
     let abbr;
     for(const s of selections) {
-      if(!s.isEmpty) return vscode.commands.executeCommand('tab');
+      if(!s.isEmpty) return vscode.commands.executeCommand(fallback);
       const offset=editor.document.offsetAt(s.active);
       const a=candidate(text.slice(0,offset),text.slice(offset),c.language);
-      if(!a || (abbr && a!==abbr)) return vscode.commands.executeCommand('tab');
+      if(!a || (abbr && a!==abbr)) return vscode.commands.executeCommand(fallback);
       abbr=a; ranges.push(new vscode.Range(s.active.translate(0,-a.length),s.active));
     }
     await vscode.commands.executeCommand('hideSuggestWidget');
     await vscode.commands.executeCommand('editor.action.inlineSuggest.hide');
     const result=await run({...c,abbr,clipboard:c.clipboardDefaults?await vscode.env.clipboard.readText():''});
     if(!same(editor,version,selections)) return;
-    if(!result) return vscode.commands.executeCommand('tab');
+    if(!result) return vscode.commands.executeCommand(fallback);
     await vscode.commands.executeCommand('hideSuggestWidget');
     clearValue();
     await editor.insertSnippet(new vscode.SnippetString(result.snippet),ranges);
@@ -208,9 +228,16 @@ function activate(context) {
       valueSession={editor,start:ranges[0].start,prefix:result.prefix,property:result.property};
       await vscode.commands.executeCommand('setContext','hayaku.valueActive',true);
     }
-  });
+  }
   register('hayaku.postexpand', async editor => {
     if(!enabled(editor,'enablePostexpand')) return vscode.commands.executeCommand('jumpToNextSnippetPlaceholder');
+    // A stale value context must not send a newly typed declaration to the next field.
+    const text=editor.document.getText();
+    if(editor.selections.length && editor.selections.every(s=>{
+      if(!s.isEmpty) return false;
+      const offset=editor.document.offsetAt(s.active);
+      return candidate(text.slice(0,offset),text.slice(offset),editor.document.languageId);
+    })) return expandEditor(editor,'jumpToNextSnippetPlaceholder');
     const session=valueSession;
     await vscode.commands.executeCommand('hideSuggestWidget');
     clearValue();
