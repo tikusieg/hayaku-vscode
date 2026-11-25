@@ -74,6 +74,7 @@ function activate(context) {
     options.CSS_enable_function_snippets=c.get('enableFunctionSnippets',true);
     options.CSS_cycle_positive_limits=c.get('enablePositiveValueLimits',true);
     return {options:styleOptions(options), aliases:c.get('aliases',{}),
+      propertyPriority:c.get('propertyPriority',[]), valuePriority:c.get('valuePriority',{}),
       dictionary:c.get('dictionary',{}), language:editor.document.languageId, clipboardDefaults:c.get('clipboardDefaults',true)};
   }
   // Suggestions use the same contextual abbreviation parser and engine as Tab.

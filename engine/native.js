@@ -145,7 +145,22 @@ function choose(abbr,candidates,priorities=priority,scored=true) {
   const rank=c=>{const i=priorities.indexOf(c.split(' ')[0]);return i<0?priorities.length+1:i;};
   return candidates.sort((a,b)=>rank(a)-rank(b)||(a<b?-1:a>b?1:0))[0]||'';
 }
-function extract(input,data,aliases) {
+function priorityList(value) {
+  return Array.isArray(value)?[...new Set(value.filter(v=>typeof v==='string'&&v.length))]:[];
+}
+function preferred(candidates,settings) {
+  const properties=priorityList(settings.propertyPriority);
+  const rank=c=>{const i=properties.indexOf(c.split(' ')[0]);return i<0?Infinity:i;};
+  const best=Math.min(...candidates.map(rank));
+  if(Number.isFinite(best))candidates=candidates.filter(c=>rank(c)===best);
+  // Values are compared only within the same property.
+  return candidates.filter(c=>{
+    const [name,value]=c.split(' '),values=priorityList(settings.valuePriority?.[name]);
+    const matches=candidates.filter(v=>v.startsWith(name+' ')&&values.includes(v.slice(name.length+1)));
+    return value===undefined||!matches.length||value===values.find(v=>matches.includes(name+' '+v));
+  });
+}
+function extract(input,data,aliases,settings={}) {
   const p=segmentation(input);if(!p.name)return null;
   const abbrValue=p.hasValue&&!input.replace(/!$/,'').endsWith(':');
   let candidates=[];
@@ -166,7 +181,10 @@ function extract(input,data,aliases) {
   let starts=pair?candidates.filter(c=>c.startsWith(aliases[pair])&&subsequence(c,abbr)):[];
   if(!starts.length)starts=candidates.filter(c=>c[0]===abbr[0]&&subsequence(c,abbr));
   if(own(p,'number')||p.keyword==='')starts=starts.filter(c=>!c.includes(' '));
-  const picked=choose(abbr,starts);if(!picked)return null;
+  // Preserve literal names/values; short CSS names keep their legacy abbreviation rules.
+  const hasPriority=priorityList(settings.propertyPriority).length||Object.values(settings.valuePriority||{}).some(v=>priorityList(v).length);
+  const exact=hasPriority?starts.filter(c=>c===abbr&&(c.includes(' ')||c.length>2)):[];
+  const picked=choose(abbr,exact.length?exact:preferred(starts,settings));if(!picked)return null;
   const [name,value]=picked.split(' ');p.name=name;
   if(value!==undefined)p.keyword=value;
   const vals=data.flat[name]||[];
@@ -237,7 +255,11 @@ const escape = value=>value.replaceAll('\\','\\\\').replaceAll('$','\\$').replac
 function expand(request={}) {
   const language=request.language||'css',ds=dictionaries(request);
   if(request.action==='metadata')return clone(ds.modern.dict[request.property]||{});
-  if(request.action==='values')return [...new Set((ds.modern.flat[request.property]||[]).filter(v=>/^[a-z-]+$/.test(v)))];
+  if(request.action==='values') {
+    const values=[...new Set((ds.modern.flat[request.property]||[]).filter(v=>/^[a-z-]+$/.test(v)))];
+    const first=priorityList(request.valuePriority?.[request.property]).filter(v=>values.includes(v));
+    return [...first,...values.filter(v=>!first.includes(v))];
+  }
   const abbr=request.abbr||'';if(!abbr||abbr.length>128)return null;
   const o={CSS_whitespace_after_colon:' ',CSS_syntax_no_semicolons:['sass','stylus'].includes(language),CSS_syntax_no_colons:language==='stylus',
     CSS_prefixes_align:!['sass','stylus'].includes(language),CSS_colors_case:'uppercase',CSS_colors_length:'short',CSS_syntax_quote_symbol:'"',CSS_clipboard_defaults:['colors','images']};
@@ -257,10 +279,14 @@ function expand(request={}) {
   resolved=resolved.replaceAll(': ',':');
   const name=segmentation(resolved).name;
   let data=ds.modern,p;
-  if(!(own(ds.modern.dict,name)&&!own(ds.legacy.dict,name))) {p=extract(resolved,ds.legacy,ds.aliases);if(p)data=ds.legacy;}
-  p=p||extract(resolved,data,ds.aliases);
+  const hasPriority=priorityList(request.propertyPriority).length||Object.values(request.valuePriority||{}).some(v=>priorityList(v).length);
+  const preferredModern=hasPriority?extract(resolved,ds.modern,ds.aliases,request):null;
+  if(preferredModern&&(priorityList(request.propertyPriority).includes(preferredModern.name)||
+    priorityList(request.valuePriority?.[preferredModern.name]).includes(preferredModern.keyword)))p=preferredModern;
+  if(!p&&!(own(ds.modern.dict,name)&&!own(ds.legacy.dict,name))) {p=extract(resolved,ds.legacy,ds.aliases,request);if(p)data=ds.legacy;}
+  p=p||extract(resolved,data,ds.aliases,request);
   if(!p&&resolved.includes(':')) {
-    const colon=resolved.indexOf(':');p=extract(resolved.slice(0,colon+1),data,ds.aliases);
+    const colon=resolved.indexOf(':');p=extract(resolved.slice(0,colon+1),data,ds.aliases,request);
     if(p)p.keyword=resolved.slice(colon+1);
   }
   if(!p)return null;

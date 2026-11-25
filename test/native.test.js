@@ -34,3 +34,21 @@ test('native postexpansion handles literal complex values and snippet escaping',
 test('numeric spelling, units and alpha colors retain the original behavior',()=>{
   for(const [abbr,snippet] of Object.entries({'w10.0':'width: 10.0em;$0','w0':'width: 0;$0','c#abc.2':'color: rgba(170,187,204,.2);$0','cFFFA':'color: rgba(255,255,255,0.67);$0'}))assert.equal(expand({abbr}).snippet,snippet);
 });
+test('user priorities select matching properties and values without changing defaults',()=>{
+  const settings={propertyPriority:['padding','position'],valuePriority:{display:['flow-root','flex']}};
+  assert.equal(expand({...settings,abbr:'p'}).property,'padding');
+  assert.equal(expand({...settings,abbr:'d:f'}).snippet,'display: flow-root;$0');
+  assert.equal(expand({...settings,abbr:'display:flex'}).snippet,'display: flex;$0');
+  assert.equal(expand({...settings,abbr:'position'}).property,'position');
+  assert.equal(expand({...settings,abbr:'x',aliases:{x:'position'}}).property,'position');
+  assert.equal(expand({...settings,abbr:'d'}).snippet,expand({abbr:'d'}).snippet);
+  assert.equal(expand({abbr:'p'}).snippet,expand({abbr:'p',propertyPriority:[],valuePriority:{}}).snippet);
+  assert.equal(expand({...settings,action:'values',property:'display'})[0],'flow-root');
+  for(const language of ['css','sass','stylus']) {
+    const result=expand({...settings,abbr:'p-1.5rem!',language});
+    assert.equal(result.property,'padding');
+    assert.ok(result.snippet.includes('-1.5rem !important'));
+  }
+  assert.equal(expand({abbr:'p',propertyPriority:['unknown',null,'padding','padding']}).property,'padding');
+  assert.doesNotThrow(()=>expand({abbr:'d:f',propertyPriority:42,valuePriority:{display:'flex'}}));
+});

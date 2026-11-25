@@ -203,3 +203,19 @@ VS Codeの設定画面で次を検索してください。
 ### ライセンス
 
 [MIT License](LICENSE)。元のHayakuおよび同梱データの著作権表記を保持しています。CSSデータのライセンスは[THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt)をご覧ください。
+
+### よく使うプロパティ・値の優先順
+
+`settings.json`で、配列の先頭ほど優先する候補を指定できます。
+
+```json
+"hayaku.propertyPriority": ["padding", "position"],
+"hayaku.valuePriority": {
+  "display": ["flex", "grid", "block"],
+  "position": ["relative", "absolute", "fixed"]
+}
+```
+
+入力した略記に一致する候補の中で、プロパティ、値の順に優先順位を適用します。完全一致する名前・値、別名設定、自作スニペットの優先動作は維持します。未指定の候補は既存の判定を使い、設定を空にすると従来の動作に戻ります。
+
+Tabによる直接展開とサジェストに同じ設定が反映されます。値の優先順は、値の後展開とキーワードの順送りにも反映します。値を省略したときの初期値は変更しません。初期値は`hayaku.dictionary`の`default`で指定してください。

@@ -233,3 +233,13 @@ test('suggestions respect cancellation, settings and CSS context',async()=>{
     assert.equal(h.requests.length,0);
   }
 });
+test('Tab and completion share configured property and value priorities',async()=>{
+  const settings={propertyPriority:['font-stretch'],valuePriority:{'font-stretch':['semi-expanded','semi-condensed']}};
+  const h=harness('.x {\n  fs','css',[],0,settings);
+  await h.commands['hayaku.expand']();
+  const result=await h.provider.provideCompletionItems(h.editor.document,h.editor.selections[0].active,{isCancellationRequested:false});
+  const inserted=h.calls.find(([id])=>id==='insert')[1];
+  assert.ok(inserted.startsWith('font-stretch:'));
+  assert.equal(result.items[0].insertText.value,inserted);
+  assert.deepEqual(h.requests[0].valuePriority,settings.valuePriority);
+});

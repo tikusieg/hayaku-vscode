@@ -2,7 +2,7 @@
   "name": "hayaku-vscode",
   "displayName": "Hayaku for VS Code (Unofficial)",
   "description": "Hayakuの略記展開と自作スニペットを組み合わせた、CSS入力支援の非公式移植版です。",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "publisher": "tikusieg",
   "license": "MIT",
   "engines": {
@@ -259,6 +259,25 @@
           "type": "boolean",
           "default": true,
           "description": "入力中のキーワード補完：値の先頭が一致するキーワードだけを補完します。オフでも数値の単位・色の補完とTabによる後展開は維持します。キーワードの順送りとは別の設定です。"
+        },
+        "hayaku.propertyPriority": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "プロパティの優先順：先頭ほど略記の展開候補として優先します。完全一致と別名を維持し、未指定の候補は既存の判定を使います。"
+        },
+        "hayaku.valuePriority": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "default": {},
+          "description": "値の優先順：プロパティ名ごとに先頭ほど優先する値を指定します。略記・値の後展開・キーワードの順送りに反映します。初期値はユーザー辞書のdefaultで指定します。"
         }
       }
     }
